@@ -1,0 +1,60 @@
+[gd_scene load_steps=6 format=3 uid="uid://bqx8fy3r2m4cn"]
+
+[ext_resource type="Script" path="res://src/characters/scripts/customers/CustomerAI.gd" id="1_customer"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_customer"]
+radius = 0.35
+height = 1.7
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_customer"]
+radius = 0.35
+height = 1.7
+
+[sub_resource type="QuadMesh" id="QuadMesh_bubble"]
+size = Vector2(0.5, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="Material_bubble"]
+transparency = 1
+albedo_color = Color(1, 1, 1, 0.9)
+billboard_mode = 1
+
+[node name="Customer" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_customer")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+shape = SubResource("CapsuleShape3D_customer")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+mesh = SubResource("CapsuleMesh_customer")
+skeleton = NodePath("../..")
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
+path_desired_distance = 0.5
+target_desired_distance = 0.5
+path_max_distance = 3.0
+avoidance_enabled = true
+avoidance_layers = 4
+avoidance_mask = 4
+radius = 0.5
+neighbor_distance = 2.0
+max_neighbors = 5
+
+[node name="SpeechBubble" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
+visible = false
+
+[node name="BubbleMesh" type="MeshInstance3D" parent="SpeechBubble"]
+mesh = SubResource("QuadMesh_bubble")
+surface_material_override/0 = SubResource("Material_bubble")
+
+[node name="OrderLabel" type="Label3D" parent="SpeechBubble"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.01)
+visible = false
+text = "🍕"
+font_size = 64
+outline_size = 8
+billboard = 1

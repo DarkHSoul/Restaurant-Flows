@@ -1,0 +1,52 @@
+[gd_scene load_steps=5 format=3 uid="uid://cj8ndv7y8qp3m"]
+
+[ext_resource type="Script" path="res://src/systems/scripts/FoodItem.gd" id="1_food"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_soup"]
+height = 0.3
+radius = 0.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_soup"]
+albedo_color = Color(0.9, 0.5, 0.2, 1)
+metallic = 0.2
+roughness = 0.6
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_soup"]
+material = SubResource("StandardMaterial3D_soup")
+top_radius = 0.2
+bottom_radius = 0.2
+height = 0.3
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_steam"]
+emission_shape = 3
+emission_box_extents = Vector3(0.15, 0, 0.15)
+direction = Vector3(0, 1, 0)
+spread = 10.0
+initial_velocity_min = 0.5
+initial_velocity_max = 1.0
+gravity = Vector3(0, 0.5, 0)
+scale_min = 0.1
+scale_max = 0.2
+
+[node name="FoodSoup" type="RigidBody3D"]
+mass = 0.3
+script = ExtResource("1_food")
+food_type = 4
+food_name = "Soup"
+cooking_time = 8.0
+burn_time = 15.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+shape = SubResource("CylinderShape3D_soup")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+mesh = SubResource("CylinderMesh_soup")
+
+[node name="SteamParticles" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+emitting = false
+amount = 15
+lifetime = 1.5
+process_material = SubResource("ParticleProcessMaterial_steam")

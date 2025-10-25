@@ -1,0 +1,67 @@
+[gd_scene load_steps=2 format=3 uid="uid://dq2k4vb8mwyaj"]
+
+[ext_resource type="Script" path="res://src/ui/DailyReportUI.gd" id="1_report"]
+
+[node name="DailyReportUI" type="CanvasLayer"]
+process_mode = 3
+script = ExtResource("1_report")
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -350.0
+offset_top = -250.0
+offset_right = 350.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "DAILY REPORT"
+horizontal_alignment = 1
+
+[node name="DayLabel" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Day 1 Complete!"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="StatsContainer" type="VBoxContainer" parent="Panel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RevenueLabel" type="Label" parent="Panel/VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Total Revenue: $0.00"
+
+[node name="ExpensesLabel" type="Label" parent="Panel/VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Total Expenses: $0.00"
+
+[node name="ProfitLabel" type="Label" parent="Panel/VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Net Profit: $0.00"
+
+[node name="OrdersLabel" type="Label" parent="Panel/VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Orders Completed: 0"
+
+[node name="AvgOrderLabel" type="Label" parent="Panel/VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Avg Order Value: $0.00"
+
+[node name="ExpensesBreakdown" type="VBoxContainer" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="ContinueButton" type="Button" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Continue"

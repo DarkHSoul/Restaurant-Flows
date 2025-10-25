@@ -1,0 +1,39 @@
+[gd_scene load_steps=4 format=3 uid="uid://dmkq8hw3pr7yi"]
+
+[ext_resource type="Script" path="res://src/environment/scripts/PrepCounter.gd" id="1_prep"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_prep"]
+size = Vector3(1.8, 0.9, 0.6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_prep"]
+albedo_color = Color(0.9, 0.9, 0.95, 1)
+metallic = 0.3
+roughness = 0.4
+emission_enabled = true
+emission = Color(0.05, 0.1, 0.15, 1)
+emission_energy = 0.2
+
+[sub_resource type="BoxMesh" id="BoxMesh_prep"]
+material = SubResource("StandardMaterial3D_prep")
+size = Vector3(1.8, 0.9, 0.6)
+
+[node name="PrepCounter" type="StaticBody3D"]
+script = ExtResource("1_prep")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+shape = SubResource("BoxShape3D_prep")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+mesh = SubResource("BoxMesh_prep")
+
+[node name="FoodPosition" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+
+[node name="CookingLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+visible = false
+light_color = Color(0.5, 0.8, 1, 1)
+light_energy = 1.5
+omni_range = 1.8

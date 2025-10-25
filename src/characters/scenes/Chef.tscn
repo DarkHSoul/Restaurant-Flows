@@ -1,0 +1,41 @@
+[gd_scene load_steps=4 format=3 uid="uid://c5k7j8m9n6p2q"]
+
+[ext_resource type="Script" path="res://src/characters/scripts/chef/ChefAI.gd" id="1_chef_script"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_chef"]
+height = 1.8
+radius = 0.3
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_chef"]
+height = 1.8
+radius = 0.3
+
+[node name="Chef" type="CharacterBody3D"]
+collision_layer = 8
+collision_mask = 1
+script = ExtResource("1_chef_script")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+mesh = SubResource("CapsuleMesh_chef")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_chef")
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
+path_desired_distance = 0.5
+target_desired_distance = 0.5
+path_height_offset = 0.5
+path_max_distance = 5.0
+avoidance_enabled = true
+radius = 0.5
+height = 1.8
+neighbor_distance = 3.0
+max_neighbors = 5
+time_horizon_agents = 1.0
+time_horizon_obstacles = 0.5
+max_speed = 3.5
+
+[node name="HeldItemPosition" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1.2, -0.5)

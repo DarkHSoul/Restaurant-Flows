@@ -1,0 +1,5 @@
+res://src/characters/scripts/chef/ChefAI.gd
+res://src/characters/scripts/customers/CustomerAI.gd
+res://src/characters/scripts/waiter/WaiterAI.gd
+res://src/systems/scripts/CustomerSpawner.gd
+res://src/characters/scenes/Customer.tscn

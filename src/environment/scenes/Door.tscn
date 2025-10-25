@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=3 uid="uid://dk8qw4m7ny9r5p"]
+
+[ext_resource type="Script" path="res://src/environment/scripts/Door.gd" id="1_door"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_door"]
+size = Vector3(1.5, 2.5, 0.1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_door"]
+size = Vector3(1.5, 2.5, 0.1)
+
+[node name="Door" type="Node3D"]
+script = ExtResource("1_door")
+door_color = Color(0.3, 0.5, 0.8, 1)
+
+[node name="DoorPivot" type="AnimatableBody3D" parent="."]
+collision_layer = 17
+collision_mask = 0
+sync_to_physics = false
+
+[node name="Visual" type="MeshInstance3D" parent="DoorPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 0, 0)
+mesh = SubResource("BoxMesh_door")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.75, 0, 0)
+shape = SubResource("BoxShape3D_door")

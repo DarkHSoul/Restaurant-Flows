@@ -1,0 +1,52 @@
+[gd_scene load_steps=5 format=3 uid="uid://ce8kqwm3xh7yi"]
+
+[ext_resource type="Script" path="res://src/systems/scripts/FoodItem.gd" id="1_food"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_pizza"]
+height = 0.1
+radius = 0.25
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pizza"]
+albedo_color = Color(0.9, 0.7, 0.3, 1)
+metallic = 0.0
+roughness = 0.8
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pizza"]
+material = SubResource("StandardMaterial3D_pizza")
+top_radius = 0.25
+bottom_radius = 0.25
+height = 0.1
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_steam"]
+emission_shape = 3
+emission_box_extents = Vector3(0.2, 0, 0.2)
+direction = Vector3(0, 1, 0)
+spread = 10.0
+initial_velocity_min = 0.5
+initial_velocity_max = 1.0
+gravity = Vector3(0, 0.5, 0)
+scale_min = 0.1
+scale_max = 0.2
+
+[node name="FoodPizza" type="RigidBody3D"]
+mass = 0.3
+script = ExtResource("1_food")
+food_type = 0
+food_name = "Pizza"
+cooking_time = 20.0
+burn_time = 35.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+shape = SubResource("CylinderShape3D_pizza")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+mesh = SubResource("CylinderMesh_pizza")
+
+[node name="SteamParticles" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+emitting = false
+amount = 20
+lifetime = 2.0
+process_material = SubResource("ParticleProcessMaterial_steam")

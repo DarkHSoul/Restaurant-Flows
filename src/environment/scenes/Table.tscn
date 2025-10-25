@@ -1,0 +1,68 @@
+[gd_scene load_steps=7 format=3 uid="uid://dtb8wmx5f3r2h"]
+
+[ext_resource type="Script" path="res://src/environment/scripts/Table.gd" id="1_table"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_table"]
+size = Vector3(1.0, 0.8, 1.0)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tabletop"]
+albedo_color = Color(0.8, 0.4, 0.2, 1)
+metallic = 0.3
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_table"]
+material = SubResource("StandardMaterial3D_tabletop")
+size = Vector3(1.0, 0.1, 1.0)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_legs"]
+albedo_color = Color(0.5, 0.3, 0.15, 1)
+metallic = 0.1
+roughness = 0.7
+
+[sub_resource type="SphereMesh" id="SphereMesh_indicator"]
+radius = 0.1
+height = 0.2
+
+[node name="Table" type="StaticBody3D"]
+script = ExtResource("1_table")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+shape = SubResource("BoxShape3D_table")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+mesh = SubResource("BoxMesh_table")
+
+[node name="TableLegs" type="Node3D" parent="."]
+
+[node name="Leg1" type="CSGBox3D" parent="TableLegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0.35, -0.4)
+size = Vector3(0.1, 0.7, 0.1)
+material = SubResource("StandardMaterial3D_legs")
+
+[node name="Leg2" type="CSGBox3D" parent="TableLegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0.35, -0.4)
+size = Vector3(0.1, 0.7, 0.1)
+material = SubResource("StandardMaterial3D_legs")
+
+[node name="Leg3" type="CSGBox3D" parent="TableLegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0.35, 0.4)
+size = Vector3(0.1, 0.7, 0.1)
+material = SubResource("StandardMaterial3D_legs")
+
+[node name="Leg4" type="CSGBox3D" parent="TableLegs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0.35, 0.4)
+size = Vector3(0.1, 0.7, 0.1)
+material = SubResource("StandardMaterial3D_legs")
+
+[node name="CustomerSeatPosition" type="Marker3D" parent="."]
+transform = Transform3D(-1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, 1.2)
+
+[node name="FoodPosition" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+
+[node name="OrderIndicator" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+visible = false
+mesh = SubResource("SphereMesh_indicator")

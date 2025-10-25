@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(powershell:*)",
+      "Bash(find:*)",
+      "Bash(copy:*)",
+      "Bash(timeout /t 3)",
+      "Bash(tree:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "godot-mcp",
+    "godot"
+  ]
+}

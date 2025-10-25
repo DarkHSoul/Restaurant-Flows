@@ -1,0 +1,65 @@
+[gd_scene load_steps=2 format=3 uid="uid://ca8k3vb2qwc7h"]
+
+[ext_resource type="Script" path="res://src/ui/ShopUI.gd" id="1_shop"]
+
+[node name="ShopUI" type="CanvasLayer" groups=["shop_ui"]]
+layer = 1
+process_mode = 3
+script = ExtResource("1_shop")
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -300.0
+offset_right = 400.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "UPGRADE SHOP"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MoneyDisplay" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Available Money: $0.00"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/VBoxContainer"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="UpgradesContainer" type="VBoxContainer" parent="Panel/VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NoUpgradesLabel" type="Label" parent="Panel/VBoxContainer"]
+visible = false
+layout_mode = 2
+text = "All upgrades purchased!"
+horizontal_alignment = 1
+
+[node name="HSeparator2" type="HSeparator" parent="Panel/VBoxContainer"]
+layout_mode = 2
+
+[node name="ControlsHint" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "↑/↓: Navigate | Enter: Buy | ESC: Close"
+horizontal_alignment = 1
+
+[node name="CloseButton" type="Button" parent="Panel/VBoxContainer"]
+layout_mode = 2
+text = "Close (ESC)"
