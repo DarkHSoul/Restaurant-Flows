@@ -22,7 +22,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `mcp__godot__get_debug_output` - Monitor runtime errors in real-time during development
 
 ### Testing & Debugging
-- Use debug spawn key: **F7** (manual customer spawn via _input) to spawn test customers
+- Use debug spawn keys:
+  - **F7** - Spawn test customer
+  - **F6** - Spawn waiter
+  - **F10** - Spawn chef (changed from F8 to avoid conflict with Godot editor stop)
 - Toggle shop UI with **Tab** key to test economy system
 - Use **ESC** for pause menu functionality testing
 - Monitor customer satisfaction with emotion labels above customers (😊, 🤔, 😠, 📝, 🍽️, ⏰, 😤, 😋, 😃, 😞)
@@ -42,7 +45,7 @@ The game operates through a signal-driven event system:
 7. **ChefSpawner** manages chef creation and assignment to orders
 8. **OrderManager** (singleton) handles menu, pricing, order completion, and reputation
 9. **EconomyManager** (singleton) manages money, expenses, upgrades, and financial tracking
-10. **Player** can interact with stations and food items (currently observers in waiter/chef system)
+10. **Player** can actively participate: pick up ingredients, cook food, place on serving counter alongside AI chefs
 11. **CookingStation** base class handles food placement, cooking timers, and state changes
 12. **TrashBin** allows disposal of incorrect or burnt food items
 13. **ServingCounter** acts as intermediary between kitchen and dining area for food pickup
@@ -72,7 +75,41 @@ The game operates through a signal-driven event system:
 - Left Click: pickup/drop food items
 - ESC: pause (ui_cancel)
 - Tab: toggle shop UI (toggle_orders)
+- H: toggle tutorial help overlay
 - F7: manual debug spawn customer (via _input in CustomerSpawner)
+
+### Player Interaction System
+The player can actively help in the restaurant by cooking and preparing food:
+
+**Picking Up Food:**
+- Look at food items (they highlight when in range)
+- **Left Click** to pick up food
+- Food items have proper collision layers (Layer 6) for raycast detection
+- Player can hold one item at a time in their hands
+
+**Cooking Workflow:**
+1. **Pick up raw ingredient** from storage/spawn area
+2. **Approach cooking station** (Oven, Stove, or Prep Counter)
+3. **Press E** to place food on station
+   - Stations check for active orders before accepting food
+   - Manual stations require another **E press** to start cooking
+   - Auto-cook stations start cooking immediately
+4. **Wait for cooking** - visual feedback shows cooking progress
+5. **Press E again** to pick up cooked food
+6. **Place cooked food on Serving Counter** for waiters to deliver
+
+**Station Types:**
+- **Oven** (Pizza, 20s): auto_cook = true
+- **Stove** (Burger, Pasta, Soup): auto_cook = true
+- **Prep Counter** (Salad): auto_cook = false (requires manual activation)
+- **Serving Counter**: Accepts only cooked food, no cooking happens here
+
+**Player vs AI Chefs:**
+- Player and AI chefs work in parallel
+- Both can place food on stations and pick up cooked food
+- Order validation system prevents duplicate cooking
+- Chefs bypass order validation (they've already claimed the order)
+- Player must have active customer orders to place food
 
 ## Code Patterns
 
@@ -161,6 +198,53 @@ The UI system uses a layered approach with real-time data binding:
 - **CookingProgressBar**: Visual feedback for station cooking progress (if implemented)
 - All UI components connect to singleton managers via signals for real-time updates
 - UI responds to economy events (money changes, expenses, upgrades)
+
+### Audio and Particle Systems
+The game features integrated audio feedback and visual particle effects:
+
+**AudioManager (Singleton)**:
+- Global audio manager at `src/systems/scripts/AudioManager.gd`
+- Manages sound effects with pooled AudioStreamPlayer instances
+- Supports both 2D and 3D positioned audio
+- Audio settings: Master (100%), Music (70%), SFX (80%)
+- Sound files location: `assets/audio/sfx/` (supports .wav, .ogg, .mp3)
+- Max 16 simultaneous sound effects via player pool
+
+**Sound Effects Implemented**:
+- **order_ding** - Plays when customer order is taken (3D positioned)
+- **customer_happy** - Plays when satisfaction >70% and increases (3D positioned)
+- **customer_neutral** - Plays when satisfaction 30-60% and decreases (3D positioned)
+- **customer_angry** - Plays when satisfaction <30% and decreases (3D positioned)
+- **cooking_oven** - Looping sound for oven cooking (pizza)
+- **cooking_sizzle** - Looping sound for stove cooking (burger, pasta, soup)
+- **cooking_chop** - Looping sound for prep counter (salad)
+- **cooking_generic** - Fallback looping cooking sound
+
+**Particle Effects**:
+- **Steam Particles** (CookingStation):
+  - GPUParticles3D system on all cooking stations
+  - Activates when cooking starts, deactivates when cooking stops
+  - White/blue-tinted steam rising from food position
+  - 20 particles, 2-second lifetime, sphere emission
+
+- **Satisfaction Stars** (Customer):
+  - GPUParticles3D system on each customer
+  - One-shot burst effect when satisfaction increases >5 points and >70%
+  - 8 yellow/gold star particles with upward burst
+  - 1.5-second lifetime with gravity and fade-out
+
+**Audio Integration**:
+- Sounds trigger on significant game events (orders, satisfaction changes, cooking)
+- 3D positioned sounds use inverse distance attenuation
+- Cooking sounds loop seamlessly during cooking process
+- All audio is non-blocking and managed by AudioManager singleton
+
+**Adding New Audio**:
+1. Place audio files in `assets/audio/sfx/`
+2. Call `AudioManager.instance.play_sfx(sound_name)` for 2D sounds
+3. Call `AudioManager.instance.play_sfx_3d(sound_name, position)` for 3D sounds
+4. For looping sounds, use AudioStreamPlayer3D directly and set loop mode
+5. See `assets/audio/AUDIO_SETUP.md` for complete audio setup guide
 
 ## File Organization
 

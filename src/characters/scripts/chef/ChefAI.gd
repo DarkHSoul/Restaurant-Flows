@@ -41,6 +41,7 @@ var _target_position: Vector3 = Vector3.ZERO
 var _has_target: bool = false
 var _current_order: Dictionary = {}
 var _held_food: FoodItem = null
+var _cooking_food: FoodItem = null  # Track the food we placed on station for cooking
 var _assigned_customer: Node = null  # Track which customer we're cooking for
 var _check_timer: float = 0.0
 var _idle_position: Vector3 = Vector3.ZERO
@@ -53,6 +54,7 @@ var _storage_position: Vector3 = Vector3.ZERO
 @onready var _visual: MeshInstance3D = $Visual
 @onready var _held_item_position: Marker3D = $HeldItemPosition
 var _status_label: Label3D = null
+var _progress_indicator: Node3D = null  # Circular progress UI for cooking actions
 
 func _ready() -> void:
 	print("[CHEF] Ready called!")
@@ -79,6 +81,9 @@ func _ready() -> void:
 	# Create status label
 	_create_status_label()
 
+	# Create progress indicator
+	_create_progress_indicator()
+
 	# Store initial position as idle position
 	_idle_position = global_position
 
@@ -100,6 +105,11 @@ func _exit_tree() -> void:
 	if is_instance_valid(_status_label):
 		_status_label.queue_free()
 		_status_label = null
+
+	# Clean up progress indicator
+	if is_instance_valid(_progress_indicator):
+		_progress_indicator.queue_free()
+		_progress_indicator = null
 
 	# Clean up held food if still exists
 	if _held_food and is_instance_valid(_held_food):
@@ -125,10 +135,62 @@ func _create_status_label() -> void:
 	add_child(_status_label)
 	_update_status_display()
 
+func _create_progress_indicator() -> void:
+	"""Create a 3D circular progress indicator for cooking actions."""
+	# Create a Node3D container for the progress UI
+	_progress_indicator = Node3D.new()
+	_progress_indicator.name = "ProgressIndicator"
+	add_child(_progress_indicator)
+
+	# Position it at the same level as status label to surround the emoji
+	_progress_indicator.position = Vector3(0, 2.2, 0)
+
+	# Create a Sprite3D to display the circular progress
+	var sprite := Sprite3D.new()
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.pixel_size = 0.004
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+
+	# Create a viewport to render the circular progress
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(128, 128)
+	viewport.transparent_bg = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+	# Create the circular progress control
+	var progress_script := load("res://src/ui/CircularProgress.gd")
+	var progress_control := Control.new()
+	progress_control.set_script(progress_script)
+	progress_control.size = Vector2(128, 128)
+	progress_control.set("ring_color", Color(1.0, 0.5, 0.0, 0.9))  # Orange color for chef
+	progress_control.set("background_color", Color(0.2, 0.2, 0.2, 0.6))
+	progress_control.set("ring_thickness", 10.0)
+	progress_control.set("ring_radius_offset", 8.0)
+	progress_control.set("progress", 0.0)
+
+	# Add to viewport
+	viewport.add_child(progress_control)
+	_progress_indicator.add_child(viewport)
+
+	# Set viewport texture to sprite
+	sprite.texture = viewport.get_texture()
+	_progress_indicator.add_child(sprite)
+
+	# Hide by default
+	_progress_indicator.visible = false
+
 func _physics_process(delta: float) -> void:
 	# Apply gravity
 	if not is_on_floor():
 		velocity += get_gravity() * delta
+
+	# Only process AI when game is playing
+	var game_manager = GameManager.instance
+	if not game_manager or game_manager.current_state != GameManager.GameState.PLAYING:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		move_and_slide()
+		return
 
 	_update_state_behavior(delta)
 
@@ -155,7 +217,16 @@ func _update_state_behavior(delta: float) -> void:
 func _navigation_setup() -> void:
 	"""Called after navigation is ready."""
 	await get_tree().physics_frame
+
+	# Check if node is still valid before continuing
+	if not is_inside_tree():
+		return
+
 	await get_tree().create_timer(0.5).timeout
+
+	# Check again after timer
+	if not is_inside_tree():
+		return
 
 	print("[CHEF] Navigation setup complete")
 
@@ -216,14 +287,21 @@ func _look_for_orders() -> void:
 					if customer.has_method("is_chef_assigned") and customer.is_chef_assigned():
 						continue  # Skip, another chef is already cooking for this customer
 
-					# IMMEDIATELY assign ourselves to prevent race condition with other chefs
+					# IMMEDIATELY try to assign ourselves to prevent race condition with other chefs
+					var assignment_successful := false
 					if customer.has_method("assign_chef"):
-						customer.assign_chef(self)
+						assignment_successful = customer.assign_chef(self)
 
-					# Found an unassigned order!
+					# Only proceed if we successfully claimed this customer
+					if not assignment_successful:
+						print("[CHEF] Failed to assign to customer (another chef claimed them first)")
+						continue
+
+					# Found an unassigned order and successfully claimed it!
 					selected_order = order
 					selected_customer = customer
 					found_unassigned = true
+					print("[CHEF] Successfully claimed customer for order: ", order.get("type"))
 					break
 
 		if found_unassigned:
@@ -353,6 +431,8 @@ func _create_and_place_food() -> void:
 		var success: bool = _current_station.place_food(food_item, self)
 		if success:
 			print("[CHEF] Food placed on station successfully, waiting for cooking...")
+			# Track this food as the one we're cooking
+			_cooking_food = food_item
 			# Wait for cooking to finish
 			_set_state(State.WAITING_FOR_COOKING)
 		else:
@@ -474,32 +554,34 @@ func _place_food_at_station() -> void:
 	_set_state(State.IDLE)
 
 func _check_if_cooking_finished() -> void:
-	"""Check if the food on the station is done cooking."""
-	if not _current_station:
+	"""Check if the food we placed on the station is done cooking."""
+	# Check if we still have a valid cooking food reference
+	if not _cooking_food or not is_instance_valid(_cooking_food):
+		print("[CHEF] Cooking food is invalid or was removed, going idle")
 		_set_state(State.IDLE)
+		_show_progress_indicator(false)
+		_cooking_food = null
 		return
 
-	# Check if station has cooked food ready
-	if _current_station.has_method("get_placed_foods"):
-		var foods: Array[FoodItem] = _current_station.get_placed_foods()
-		if foods.is_empty():
-			# Food was removed or station is empty
-			print("[CHEF] No food on station, going idle")
-			_set_state(State.IDLE)
-			return
+	# Check our specific food's cooking progress
+	var food_data: Dictionary = _cooking_food.get_food_data()
+	var food_state: int = food_data.get("state", 0)
+	var cooking_progress: float = food_data.get("cooking_progress", 0.0)
 
-		var food: FoodItem = foods[0]
-		var food_data: Dictionary = food.get_food_data()
-		var food_state: int = food_data.get("state", 0)
+	# Show progress indicator and update it
+	_show_progress_indicator(true)
+	_update_progress_indicator(cooking_progress)
 
-		# Debug: Print state periodically
-		if Engine.get_physics_frames() % 60 == 0:  # Every ~1 second
-			print("[CHEF] Checking food state: ", food_state, " (waiting for 2=COOKED)")
+	# Debug: Print state periodically
+	if Engine.get_physics_frames() % 60 == 0:  # Every ~1 second
+		print("[CHEF] Checking food state: ", food_state, " | Progress: ", cooking_progress, "% (waiting for 2=COOKED)")
 
-		# State 2 = COOKED
-		if food_state == 2:
-			print("[CHEF] Food is cooked! Picking it up...")
-			_pick_cooked_food(food)
+	# State 2 = COOKED
+	if food_state == 2:
+		print("[CHEF] Food is cooked! Picking it up...")
+		_show_progress_indicator(false)
+		_pick_cooked_food(_cooking_food)
+		_cooking_food = null  # Clear reference after picking up
 
 func _pick_cooked_food(food: FoodItem) -> void:
 	"""Pick up the cooked food from the station."""
@@ -552,18 +634,15 @@ func _place_food_at_counter() -> void:
 			# Emit signal
 			food_prepared.emit(self, _held_food, _current_order)
 		else:
-			print("[CHEF] Failed to place food on serving counter")
-			# Fallback: position manually if place_food failed
-			var counter_pos := _serving_counter.global_position + Vector3(0, 1.0, 0.5)
-			_held_food.global_position = counter_pos
-			if _held_food is RigidBody3D:
-				_held_food.freeze = true  # Freeze to prevent falling
+			print("[CHEF] Failed to place food on serving counter - food is not cooked! Deleting raw food...")
+			# If placement failed (food not cooked), delete the food item
+			if is_instance_valid(_held_food):
+				_held_food.queue_free()
 	else:
-		# Fallback if no place_food method exists
-		var counter_pos := _serving_counter.global_position + Vector3(0, 1.0, 0.5)
-		_held_food.global_position = counter_pos
-		if _held_food is RigidBody3D:
-			_held_food.freeze = true
+		# If no place_food method exists, also delete the food
+		print("[CHEF] Serving counter has no place_food method! Deleting food...")
+		if is_instance_valid(_held_food):
+			_held_food.queue_free()
 
 	# Clear chef assignment from customer
 	if _assigned_customer and is_instance_valid(_assigned_customer) and _assigned_customer.has_method("clear_chef_assignment"):
@@ -712,3 +791,25 @@ func set_idle_position(pos: Vector3) -> void:
 func set_storage_position(pos: Vector3) -> void:
 	"""Set the storage area position."""
 	_storage_position = pos
+
+func _show_progress_indicator(show_progress: bool) -> void:
+	"""Show or hide the circular progress indicator."""
+	if _progress_indicator:
+		_progress_indicator.visible = show_progress
+		if not show_progress:
+			# Reset progress when hiding
+			_update_progress_indicator(0.0)
+
+func _update_progress_indicator(progress: float) -> void:
+	"""Update the progress indicator percentage (0-100)."""
+	if not _progress_indicator:
+		return
+
+	# Find the viewport and its progress control child
+	for child in _progress_indicator.get_children():
+		if child is SubViewport:
+			for viewport_child in child.get_children():
+				if viewport_child is Control and "progress" in viewport_child:
+					viewport_child.set("progress", progress)
+					break
+			break

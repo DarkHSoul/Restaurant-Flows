@@ -46,12 +46,19 @@ func _spawn_initial_chefs() -> void:
 			print("[CHEF_SPAWNER] Successfully spawned chef ", i + 1)
 		else:
 			print("[CHEF_SPAWNER] Failed to spawn chef ", i + 1)
+
+		if not is_inside_tree():
+			return
+
 		await get_tree().create_timer(0.1).timeout  # Small delay between spawns
 
+		if not is_inside_tree():
+			return
+
 func _input(event: InputEvent) -> void:
-	# Listen for F8 key press to spawn chef
+	# Listen for F10 key press to spawn chef (F8 conflicts with Godot editor stop)
 	if event is InputEventKey:
-		if event.pressed and event.keycode == KEY_F8:
+		if event.pressed and event.keycode == KEY_F10:
 			spawn_chef()
 
 func spawn_chef() -> Chef:
@@ -77,9 +84,15 @@ func spawn_chef() -> Chef:
 
 	print("[CHEF_SPAWNER] Chef instance created successfully")
 
-	# Add to scene
-	get_tree().root.add_child(chef)
-	print("[CHEF_SPAWNER] Chef added to scene tree")
+	# Add to scene - use a safer parent
+	var scene_root = get_tree().current_scene
+	if scene_root:
+		scene_root.add_child(chef)
+		print("[CHEF_SPAWNER] Chef added to scene tree")
+	else:
+		print("[CHEF_SPAWNER] ERROR: Could not find scene root!")
+		chef.queue_free()
+		return null
 
 	# Position chef
 	var spawn_pos := spawn_position

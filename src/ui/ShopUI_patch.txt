@@ -1,0 +1,24 @@
+func _on_money_changed(_new_amount: float, _change: float) -> void:
+	"""Called when money changes."""
+	if is_open:
+		_update_money_display()
+		_update_button_affordability()
+
+func _update_button_affordability() -> void:
+	"""Update button states based on current money."""
+	if not economy_manager:
+		return
+
+	for i in range(available_upgrades.size()):
+		if i < upgrade_buttons.size():
+			var button := upgrade_buttons[i]
+			var upgrade := available_upgrades[i]
+			var cost: float = upgrade.get("cost", 0.0)
+
+			# Update button state based on affordability
+			if economy_manager.can_afford(cost):
+				button.disabled = false
+				button.add_theme_color_override("font_color", Color(0.2, 1, 0.2))
+			else:
+				button.disabled = true
+				button.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))

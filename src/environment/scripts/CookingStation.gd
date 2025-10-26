@@ -33,10 +33,12 @@ enum StationType {
 ## Internal state
 var _placed_foods: Array[FoodItem] = []
 var _is_highlighted: bool = false
-var _is_cooking: bool = false
+var _is_cooking: bool = false  # Tracks if ANY food is cooking (updated in _process)
 var _interaction_area: Area3D = null
-var _cooking_timer: float = 0.0
 var _progress_bar: Control = null
+var _cached_material: StandardMaterial3D = null  # Reuse material to prevent memory leaks
+var _cooking_sound_player: AudioStreamPlayer3D = null  # For looping cooking sounds
+var _steam_particles: GPUParticles3D = null  # Steam effect while cooking
 
 @onready var _visual: MeshInstance3D = $Visual
 @onready var _food_position: Marker3D = $FoodPosition
@@ -54,15 +56,39 @@ func _ready() -> void:
 
 	_setup_interaction_area()
 	_setup_progress_bar()
+	_setup_cooking_sound()
+	_setup_steam_particles()
 
 func _process(delta: float) -> void:
-	if _is_cooking:
-		_cooking_timer += delta
-		var progress: float = min(_cooking_timer / cooking_time, 1.0)
-		_update_progress_bar(progress)
+	# Check if ANY food is cooking (foods handle their own timers)
+	var any_cooking := false
+	for food in _placed_foods:
+		if is_instance_valid(food) and food.has_method("get_cooking_state"):
+			var food_state = food.get_cooking_state()
+			if food_state == 1:  # CookingState.COOKING
+				any_cooking = true
+				break
 
-		if progress >= 1.0:
-			_finish_cooking()
+	# Update visual state based on whether any food is cooking
+	if any_cooking != _is_cooking:
+		_is_cooking = any_cooking
+		_update_visual()
+
+		# Update light, particles, and sound based on cooking state
+		if _is_cooking:
+			if _light:
+				_light.visible = true
+			if _steam_particles:
+				_steam_particles.emitting = true
+			if _cooking_sound_player and _cooking_sound_player.stream and not _cooking_sound_player.playing:
+				_cooking_sound_player.play()
+		else:
+			if _light:
+				_light.visible = false
+			if _steam_particles:
+				_steam_particles.emitting = false
+			if _cooking_sound_player:
+				_cooking_sound_player.stop()
 
 ## Public interface
 
@@ -88,11 +114,13 @@ func interact(player: Node3D) -> void:
 			# If food is placed but not cooking yet, start cooking (manual cooking stations)
 			if not _is_cooking and can_cook and not auto_cook:
 				start_cooking()
-			else:
+			# Only allow pickup if NOT currently cooking
+			elif not _is_cooking:
 				# Pick up the food (either finished cooking, or doesn't need cooking)
 				if is_instance_valid(food) and player.has_method("pickup_item"):
 					remove_food(food)
 					player.pickup_item(food)
+			# If cooking, do nothing (player must wait)
 
 func highlight(enabled: bool) -> void:
 	"""Highlight station when player looks at it."""
@@ -134,9 +162,11 @@ func place_food(food: FoodItem, player: Node3D = null) -> bool:
 		food.global_position = _food_position.global_position
 		food.global_rotation = Vector3.ZERO
 
-	# Freeze food in place
+	# Freeze food in place and disable collisions to prevent pickup during cooking
 	if food is RigidBody3D:
 		food.freeze = true
+		food.collision_layer = 0  # Disable collision layer to prevent raycast pickup
+		food.collision_mask = 0   # Disable collision mask
 
 	food_placed.emit(self, food)
 
@@ -161,9 +191,11 @@ func remove_food(food: FoodItem) -> bool:
 	if food.has_method("set"):
 		food._current_station = null
 
-	# Unfreeze food
+	# Unfreeze food and restore collisions
 	if food is RigidBody3D:
 		food.freeze = false
+		food.collision_layer = 0b100000  # Layer 6: Food
+		food.collision_mask = 0b00001    # Layer 1: Environment
 
 	food_removed.emit(self, food)
 
@@ -174,10 +206,10 @@ func remove_food(food: FoodItem) -> bool:
 	return true
 
 func start_cooking() -> bool:
-	"""Start cooking process."""
-	print("[STATION] start_cooking() called. can_cook: ", can_cook, " | foods: ", _placed_foods.size(), " | is_cooking: ", _is_cooking)
+	"""Start cooking process for newly placed food."""
+	print("[STATION] start_cooking() called. can_cook: ", can_cook, " | foods: ", _placed_foods.size())
 
-	if not can_cook or _placed_foods.is_empty() or _is_cooking:
+	if not can_cook or _placed_foods.is_empty():
 		print("[STATION] Cannot start cooking - failed precondition")
 		return false
 
@@ -188,60 +220,40 @@ func start_cooking() -> bool:
 		print("[STATION] No valid foods after filter")
 		return false
 
-	_is_cooking = true
-	_cooking_timer = 0.0
 	print("[STATION] Starting cooking process...")
 
-	# Start cooking all placed foods
+	# Start cooking for foods that aren't already cooking
+	var started_any := false
 	for food in _placed_foods:
 		if is_instance_valid(food) and food.has_method("start_cooking"):
-			print("[STATION] Calling start_cooking on food...")
-			var success = food.start_cooking(self)
-			print("[STATION] start_cooking returned: ", success)
+			if food.has_method("get_cooking_state") and food.get_cooking_state() == 0:  # RAW state
+				print("[STATION] Calling start_cooking on food...")
+				var success = food.start_cooking(self)
+				print("[STATION] start_cooking returned: ", success)
+				if success:
+					started_any = true
 
-	if _light:
-		_light.visible = true
-
-	if _progress_bar:
-		_progress_bar.visible = true
-
+	# Visual effects are now handled in _process based on actual cooking state
 	cooking_started.emit(self)
-	_update_visual()
 
-	return true
+	return started_any
 
 func stop_cooking() -> void:
-	"""Stop cooking process."""
-	if not _is_cooking:
-		return
-
-	_is_cooking = false
-	_cooking_timer = 0.0
-
+	"""Stop cooking process for all foods on station."""
 	# Stop cooking all foods (check validity first)
 	for food in _placed_foods:
 		if is_instance_valid(food) and food.has_method("stop_cooking"):
 			food.stop_cooking()
 
-	if _light:
-		_light.visible = false
-
-	if _progress_bar:
-		_progress_bar.visible = false
-
+	# Visual effects are now handled in _process based on actual cooking state
 	cooking_finished.emit(self)
-	_update_visual()
 
-func _finish_cooking() -> void:
-	"""Called when cooking is complete."""
-	stop_cooking()
-
-	# Mark all foods as cooked (check validity first)
-	for food in _placed_foods:
-		if is_instance_valid(food) and food.has_method("set_cooked"):
-			food.set_cooked()
 
 func get_placed_foods() -> Array[FoodItem]:
+	return _placed_foods.duplicate()
+
+func get_cooking_foods() -> Array[FoodItem]:
+	"""Get all foods currently on this station (including cooking)."""
 	return _placed_foods.duplicate()
 
 func is_cooking() -> bool:
@@ -332,51 +344,133 @@ func _update_visual() -> void:
 	if not _visual:
 		return
 
-	var base_material := _visual.get_active_material(0)
-	if not base_material:
-		base_material = StandardMaterial3D.new()
-
-	var material := base_material.duplicate() as StandardMaterial3D
+	# Create material once and reuse it to prevent memory leaks
+	if not _cached_material:
+		var base_material := _visual.get_active_material(0)
+		if base_material:
+			_cached_material = base_material.duplicate() as StandardMaterial3D
+		else:
+			_cached_material = StandardMaterial3D.new()
 
 	if _is_cooking:
-		material.emission_enabled = true
-		material.emission = active_color
-		material.emission_energy = 0.5
+		_cached_material.emission_enabled = true
+		_cached_material.emission = active_color
+		_cached_material.emission_energy = 0.5
 	elif _is_highlighted:
-		material.emission_enabled = true
-		material.emission = highlight_color
-		material.emission_energy = 0.3
+		_cached_material.emission_enabled = true
+		_cached_material.emission = highlight_color
+		_cached_material.emission_energy = 0.3
 	else:
-		material.emission_enabled = false
+		_cached_material.emission_enabled = false
 
-	_visual.material_override = material
+	_visual.material_override = _cached_material
 
 func _setup_progress_bar() -> void:
 	"""Create and setup the progress bar."""
-	var progress_scene := load("res://src/ui/CookingProgressBar.tscn")
-	if not progress_scene:
-		return
+	# DISABLED: Using chef's 3D circular progress instead of station progress
+	return
 
-	_progress_bar = progress_scene.instantiate() as Control
-	if not _progress_bar:
-		return
+func _setup_cooking_sound() -> void:
+	"""Create and setup the 3D audio player for cooking sounds."""
+	_cooking_sound_player = AudioStreamPlayer3D.new()
+	_cooking_sound_player.name = "CookingSound"
+	_cooking_sound_player.bus = "SFX"
+	_cooking_sound_player.max_distance = 15.0
+	_cooking_sound_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	add_child(_cooking_sound_player)
 
-	# Add to station as SubViewport for 3D world space
-	var viewport := SubViewport.new()
-	viewport.size = Vector2i(200, 30)
-	viewport.transparent_bg = true
-	add_child(viewport)
-	viewport.add_child(_progress_bar)
+	# Load appropriate cooking sound based on station type
+	var sound_name: String = ""
+	match station_type:
+		StationType.OVEN:
+			sound_name = "cooking_oven"
+		StationType.STOVE:
+			sound_name = "cooking_sizzle"
+		StationType.PREP_COUNTER:
+			sound_name = "cooking_chop"
+		_:
+			sound_name = "cooking_generic"
 
-	# Create sprite to show viewport
-	var sprite := Sprite3D.new()
-	sprite.texture = viewport.get_texture()
-	sprite.pixel_size = 0.005
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.position = Vector3(0, 1.5, 0)
-	add_child(sprite)
+	# Try to load the sound (with fallback)
+	var sound_path := "res://assets/audio/sfx/%s.wav" % sound_name
+	if ResourceLoader.exists(sound_path):
+		_cooking_sound_player.stream = load(sound_path)
+	else:
+		sound_path = "res://assets/audio/sfx/%s.ogg" % sound_name
+		if ResourceLoader.exists(sound_path):
+			_cooking_sound_player.stream = load(sound_path)
 
-	_progress_bar.visible = false
+	# Make it loop if we have a stream
+	if _cooking_sound_player.stream and _cooking_sound_player.stream is AudioStreamWAV:
+		(_cooking_sound_player.stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+
+func _setup_steam_particles() -> void:
+	"""Create and setup steam particle effect for cooking."""
+	_steam_particles = GPUParticles3D.new()
+	_steam_particles.name = "SteamParticles"
+	_steam_particles.emitting = false
+	_steam_particles.amount = 20
+	_steam_particles.lifetime = 2.0
+	_steam_particles.explosiveness = 0.0
+	_steam_particles.randomness = 0.5
+	_steam_particles.visibility_aabb = AABB(Vector3(-2, -1, -2), Vector3(4, 6, 4))
+
+	# Position above the food position
+	if _food_position:
+		_steam_particles.position = _food_position.position + Vector3(0, 0.3, 0)
+	else:
+		_steam_particles.position = Vector3(0, 0.5, 0)
+
+	add_child(_steam_particles)
+
+	# Create particle material
+	var particle_material := ParticleProcessMaterial.new()
+
+	# Emission
+	particle_material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	particle_material.emission_sphere_radius = 0.2
+
+	# Direction - upward
+	particle_material.direction = Vector3(0, 1, 0)
+	particle_material.spread = 15.0
+	particle_material.initial_velocity_min = 0.5
+	particle_material.initial_velocity_max = 1.0
+
+	# Gravity
+	particle_material.gravity = Vector3(0, 0.5, 0)  # Slight upward drift
+
+	# Scale over lifetime (start small, grow, then fade)
+	particle_material.scale_min = 0.1
+	particle_material.scale_max = 0.3
+
+	# Color fade (white steam that fades to transparent)
+	var gradient := Gradient.new()
+	gradient.add_point(0.0, Color(1, 1, 1, 0.8))  # Start opaque white
+	gradient.add_point(0.5, Color(0.9, 0.9, 1, 0.5))  # Middle slightly blue-tinted
+	gradient.add_point(1.0, Color(1, 1, 1, 0))  # End transparent
+
+	var gradient_texture := GradientTexture1D.new()
+	gradient_texture.gradient = gradient
+	particle_material.color_ramp = gradient_texture
+
+	_steam_particles.process_material = particle_material
+
+	# Create visual mesh for particles (small spheres)
+	var particle_mesh := SphereMesh.new()
+	particle_mesh.radial_segments = 8
+	particle_mesh.rings = 4
+	particle_mesh.radius = 0.1
+	particle_mesh.height = 0.2
+
+	# Create material for the particle mesh
+	var mesh_material := StandardMaterial3D.new()
+	mesh_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mesh_material.albedo_color = Color(1, 1, 1, 0.6)
+	mesh_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	particle_mesh.material = mesh_material
+
+	_steam_particles.draw_pass_1 = particle_mesh
 
 func _update_progress_bar(progress: float) -> void:
 	"""Update the progress bar value."""

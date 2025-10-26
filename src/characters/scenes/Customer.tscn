@@ -42,19 +42,3 @@ avoidance_mask = 4
 radius = 0.5
 neighbor_distance = 2.0
 max_neighbors = 5
-
-[node name="SpeechBubble" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
-visible = false
-
-[node name="BubbleMesh" type="MeshInstance3D" parent="SpeechBubble"]
-mesh = SubResource("QuadMesh_bubble")
-surface_material_override/0 = SubResource("Material_bubble")
-
-[node name="OrderLabel" type="Label3D" parent="SpeechBubble"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.01)
-visible = false
-text = "🍕"
-font_size = 64
-outline_size = 8
-billboard = 1

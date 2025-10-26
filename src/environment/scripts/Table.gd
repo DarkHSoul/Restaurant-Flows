@@ -30,7 +30,8 @@ var _error_label: Label3D = null
 @onready var _visual: MeshInstance3D = $Visual
 @onready var _customer_seat_position: Marker3D = $CustomerSeatPosition
 @onready var _food_positions: Array[Marker3D] = []
-@onready var _order_indicator: MeshInstance3D = $OrderIndicator
+# OrderIndicator removed - no longer needed
+var _order_indicator: MeshInstance3D = null
 
 func _ready() -> void:
 	collision_layer = 0b10000  # Layer 4: Interactables
@@ -207,6 +208,10 @@ func place_food(food: FoodItem, player: Node3D) -> bool:
 
 	# Position food on table
 	food.global_position = food_position
+
+	# Freeze food on table to prevent it from falling or moving
+	if food is RigidBody3D:
+		food.freeze = true
 
 	# Add to placed foods
 	_placed_foods.append(food)

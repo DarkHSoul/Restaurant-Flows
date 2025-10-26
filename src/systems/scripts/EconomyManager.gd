@@ -215,14 +215,17 @@ func can_afford(amount: float) -> bool:
 func purchase_upgrade(upgrade_id: String) -> bool:
 	"""Purchase an upgrade. Returns true if successful."""
 	if upgrade_id in owned_upgrades:
+		print("[ECONOMY] Upgrade already owned: ", upgrade_id)
 		return false  # Already owned
 
 	var upgrade: Dictionary = UPGRADES.get(upgrade_id, {})
 	if upgrade.is_empty():
+		print("[ECONOMY] Upgrade not found: ", upgrade_id)
 		return false
 
 	var cost: float = upgrade.get("cost", 0.0)
 	if not can_afford(cost):
+		print("[ECONOMY] Cannot afford upgrade: ", upgrade_id, " | Cost: $", cost, " | Current: $", current_money)
 		return false
 
 	if not subtract_money(cost, "upgrade"):
@@ -230,6 +233,8 @@ func purchase_upgrade(upgrade_id: String) -> bool:
 
 	# Apply upgrade
 	owned_upgrades.append(upgrade_id)
+	print("[ECONOMY] ✅ Purchased upgrade: ", upgrade_id, " for $", cost)
+	print("[ECONOMY] Current money after purchase: $", current_money)
 	_apply_upgrade_effects(upgrade_id, upgrade)
 
 	upgrade_purchased.emit(upgrade_id, cost)
@@ -328,25 +333,40 @@ func _reset_economy() -> void:
 		"utilities": 1.0
 	}
 
-func _apply_upgrade_effects(_upgrade_id: String, upgrade: Dictionary) -> void:
+func _apply_upgrade_effects(upgrade_id: String, upgrade: Dictionary) -> void:
 	"""Apply the effects of an upgrade."""
 	var effect: Dictionary = upgrade.get("effect", {})
+	var upgrade_name: String = upgrade.get("name", upgrade_id)
+
+	print("[ECONOMY] Applying effects for upgrade: ", upgrade_name)
 
 	# Apply multipliers
 	if "price_multiplier" in effect:
+		var old_price: float = active_multipliers.price
 		active_multipliers.price *= effect.price_multiplier
+		print("[ECONOMY] 💰 Price multiplier: ", old_price, " → ", active_multipliers.price, " (+", ((active_multipliers.price / old_price - 1.0) * 100.0), "%)")
 
 	if "ingredient_cost_multiplier" in effect:
+		var old_cost: float = active_multipliers.ingredient_cost
 		active_multipliers.ingredient_cost *= effect.ingredient_cost_multiplier
+		print("[ECONOMY] 🥘 Ingredient cost multiplier: ", old_cost, " → ", active_multipliers.ingredient_cost, " (", ((active_multipliers.ingredient_cost / old_cost - 1.0) * 100.0), "%)")
 
 	if "cooking_speed" in effect:
+		var old_speed: float = active_multipliers.cooking_speed
 		active_multipliers.cooking_speed *= effect.cooking_speed
+		print("[ECONOMY] ⚡ Cooking speed multiplier: ", old_speed, " → ", active_multipliers.cooking_speed, " (+", ((active_multipliers.cooking_speed / old_speed - 1.0) * 100.0), "% faster)")
 
 	if "spawn_rate" in effect:
+		var old_rate: float = active_multipliers.spawn_rate
 		active_multipliers.spawn_rate *= effect.spawn_rate
+		print("[ECONOMY] 👥 Spawn rate multiplier: ", old_rate, " → ", active_multipliers.spawn_rate, " (+", ((active_multipliers.spawn_rate / old_rate - 1.0) * 100.0), "% more customers)")
 
 	if "utilities_multiplier" in effect:
+		var old_util: float = active_multipliers.utilities
 		active_multipliers.utilities *= effect.utilities_multiplier
+		print("[ECONOMY] ⚡ Utilities cost multiplier: ", old_util, " → ", active_multipliers.utilities, " (", ((active_multipliers.utilities / old_util - 1.0) * 100.0), "% cost change)")
+
+	print("[ECONOMY] Current multipliers: ", active_multipliers)
 
 func _increase_difficulty_costs(level: int) -> void:
 	"""Increase costs based on level progression."""

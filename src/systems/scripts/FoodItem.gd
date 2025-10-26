@@ -46,6 +46,7 @@ var _cooking_progress: float = 0.0
 var _is_being_held: bool = false
 var _current_station: Node3D = null
 var _reserved_by_waiter: Node = null  # Track which waiter has reserved this food for pickup
+var _cached_material: StandardMaterial3D = null  # Reuse material to prevent memory leaks
 
 @onready var _visual: MeshInstance3D = $Visual
 @onready var _steam_particles: GPUParticles3D = $SteamParticles
@@ -53,6 +54,9 @@ var _reserved_by_waiter: Node = null  # Track which waiter has reserved this foo
 func _ready() -> void:
 	collision_layer = 0b100000  # Layer 6: Food (changed to avoid conflict)
 	collision_mask = 0b00001    # Layer 1: Environment
+
+	# Create material once and reuse it to prevent memory leaks
+	_cached_material = StandardMaterial3D.new()
 	_update_visual()
 
 	if _steam_particles:
@@ -160,7 +164,8 @@ func get_food_data() -> Dictionary:
 		"type": FoodType.keys()[food_type].to_lower(),
 		"name": food_name,
 		"state": _cooking_state,
-		"is_edible": _cooking_state == CookingState.COOKED
+		"is_edible": _cooking_state == CookingState.COOKED,
+		"cooking_progress": get_cooking_progress() * 100.0  # 0-100 for progress bar
 	}
 
 func is_properly_cooked() -> bool:
@@ -221,24 +226,30 @@ func _update_visual() -> void:
 	if not _visual or not _visual.mesh:
 		return
 
-	var material := StandardMaterial3D.new()
+	# Reuse cached material instead of creating new one every frame (prevents memory leak)
+	if not _cached_material:
+		_cached_material = StandardMaterial3D.new()
+
+	# Reset material properties before updating
+	_cached_material.emission_enabled = false
+	_cached_material.roughness = 1.0
 
 	match _cooking_state:
 		CookingState.RAW:
-			material.albedo_color = raw_color
+			_cached_material.albedo_color = raw_color
 		CookingState.COOKING:
 			var progress := get_cooking_progress()
-			material.albedo_color = raw_color.lerp(cooked_color, progress)
+			_cached_material.albedo_color = raw_color.lerp(cooked_color, progress)
 		CookingState.COOKED:
-			material.albedo_color = cooked_color
-			material.emission_enabled = true
-			material.emission = cooked_color * 0.3
+			_cached_material.albedo_color = cooked_color
+			_cached_material.emission_enabled = true
+			_cached_material.emission = cooked_color * 0.3
 		CookingState.BURNT:
-			material.albedo_color = burnt_color
-			material.roughness = 0.9
+			_cached_material.albedo_color = burnt_color
+			_cached_material.roughness = 0.9
 		CookingState.PREPARED:
-			material.albedo_color = cooked_color
-			material.emission_enabled = true
-			material.emission = Color.GOLD * 0.4
+			_cached_material.albedo_color = cooked_color
+			_cached_material.emission_enabled = true
+			_cached_material.emission = Color.GOLD * 0.4
 
-	_visual.material_override = material
+	_visual.material_override = _cached_material

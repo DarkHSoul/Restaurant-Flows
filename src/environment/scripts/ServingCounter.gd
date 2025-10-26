@@ -68,10 +68,21 @@ func place_food(food: FoodItem, player: Node3D = null) -> bool:
 	if food.has_method("set"):
 		food._current_station = self
 
-	# Position food on station
+	# Position food on station - arrange multiple items in a row
+	var base_position: Vector3
 	if _food_position:
-		food.global_position = _food_position.global_position
-		food.global_rotation = Vector3.ZERO
+		base_position = _food_position.global_position
+	else:
+		base_position = global_position + Vector3(0, 1.0, 0)
+
+	# Calculate offset for multiple items (arrange in a line)
+	var item_index := _placed_foods.size() - 1
+	var spacing := 0.4  # Space between items
+	var x_offset := item_index * spacing - (max_items - 1) * spacing * 0.5
+
+	# Adjust position: slightly up (Y axis) and shift more in X direction towards waiters
+	food.global_position = base_position + Vector3(x_offset, 0, 0) + Vector3(0.8, -0.3, 0.3)
+	food.global_rotation = Vector3.ZERO
 
 	# Freeze food in place
 	if food is RigidBody3D:
@@ -109,6 +120,15 @@ func get_food_matching_order(order: Dictionary) -> FoodItem:
 func has_food_for_order(order: Dictionary) -> bool:
 	"""Check if there's food on the counter matching the order."""
 	return get_food_matching_order(order) != null
+
+func has_food_type(food_type: String) -> bool:
+	"""Check if there's food of a specific type on the counter."""
+	for food in _placed_foods:
+		if is_instance_valid(food) and food.has_method("get_food_data"):
+			var food_data := food.get_food_data()
+			if food_data.get("type", "") == food_type:
+				return true
+	return false
 
 func _cleanup_orphaned_food() -> void:
 	"""Remove food from counter that has no matching active orders."""

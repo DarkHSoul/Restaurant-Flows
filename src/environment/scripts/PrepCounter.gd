@@ -29,25 +29,20 @@ func interact(player: Node3D) -> void:
 
 	# If there's already food on the station, only allow pickup (not spawning new food)
 	if _placed_foods.size() > 0:
-		# If cooking, only allow pickup when finished
-		if _is_cooking:
-			if _cooking_timer >= cooking_time:
-				# Cooking is done, allow pickup
-				if not player_holding_food:
-					var food: FoodItem = _placed_foods[0]
-					if is_instance_valid(food) and player.has_method("pickup_item"):
-						remove_food(food)
-						player.pickup_item(food)
-			# Still cooking, block all interaction
-			return
-		else:
-			# Not cooking but has food - allow pickup only
-			if not player_holding_food:
-				var food: FoodItem = _placed_foods[0]
-				if is_instance_valid(food) and player.has_method("pickup_item"):
+		var food: FoodItem = _placed_foods[0]
+		if is_instance_valid(food):
+			# Check if food is still cooking
+			var food_state = food.get_cooking_state() if food.has_method("get_cooking_state") else 0
+
+			if food_state == 1:  # CookingState.COOKING
+				# Still cooking, block all interaction
+				return
+			else:
+				# Not cooking - allow pickup
+				if not player_holding_food and player.has_method("pickup_item"):
 					remove_food(food)
 					player.pickup_item(food)
-			return
+				return
 
 	# Station is empty - allow spawning new food only if there's an order
 	if not player_holding_food:

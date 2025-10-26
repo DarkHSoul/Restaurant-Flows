@@ -33,7 +33,14 @@ var camera_rotation: Vector2 = Vector2.ZERO
 var interaction_prompt: Label3D = null
 var _last_debug_object: Node3D = null  # Track last debug printed object to avoid spam
 
+## Hold-to-interact state
+var is_holding_interact: bool = false
+var interaction_progress_bar = null  # InteractionProgressBar reference
+
 func _ready() -> void:
+	# Add to player group for easy finding
+	add_to_group("player")
+
 	# Capture mouse
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -44,6 +51,14 @@ func _ready() -> void:
 		# Total: 16 + 32 + 64 = 112 = 0b1110000
 		interaction_raycast.collision_mask = 0b1110000  # Layers 4, 5, 6: Interactables + Food
 		print("[DEBUG] Raycast collision_mask set to: ", interaction_raycast.collision_mask, " (binary: ", String.num_int64(interaction_raycast.collision_mask, 2), ")")
+
+	# Find interaction progress bar from HUD
+	await get_tree().process_frame
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_node("InteractionProgressBar"):
+		interaction_progress_bar = hud.get_node("InteractionProgressBar")
+		if interaction_progress_bar and interaction_progress_bar.has_signal("interaction_completed"):
+			interaction_progress_bar.interaction_completed.connect(_on_interaction_completed)
 
 	# Create interaction prompt
 	_create_interaction_prompt()
@@ -78,9 +93,7 @@ func _input(event: InputEvent) -> void:
 		else:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-	# Interaction
-	if event.is_action_pressed("interact"):
-		_try_interact()
+	# Interaction (removed - now handled in _physics_process for hold detection)
 
 	# Pickup/Drop
 	if event.is_action_pressed("pickup"):
@@ -94,6 +107,7 @@ func _physics_process(delta: float) -> void:
 	_handle_movement(delta)
 	_update_interaction_highlight()
 	_update_held_item_position()
+	_handle_hold_to_interact()
 
 func _update_camera_rotation() -> void:
 	if camera_pivot:
@@ -195,7 +209,9 @@ func _show_interaction_prompt(interactable: Node3D) -> void:
 
 	# Determine the action text with machine/object name
 	var action_text := "[E] Interact"
-	if interactable is CookingStation:
+	if interactable is Customer:
+		action_text = "[E] Take Order"
+	elif interactable is CookingStation:
 		var station_name: String = interactable.station_name if "station_name" in interactable else "Station"
 		if held_item:
 			action_text = "[E] Place on %s" % station_name
@@ -331,3 +347,57 @@ func drop_item() -> void:
 func pickup_item(item: Node3D) -> void:
 	"""Public method to pick up an item."""
 	_pickup_item(item)
+
+## Hold-to-interact methods
+
+func _handle_hold_to_interact() -> void:
+	"""Handle hold-to-interact logic for customers."""
+	if not current_interactable:
+		# No interactable object, hide progress if showing
+		if is_holding_interact:
+			is_holding_interact = false
+			if interaction_progress_bar:
+				interaction_progress_bar.set_holding(false)
+		return
+
+	# Check if this is a customer that requires hold-to-interact
+	var requires_hold: bool = current_interactable.has_method("requires_hold_interaction") and current_interactable.requires_hold_interaction()
+
+	if not requires_hold:
+		# This object doesn't need hold interaction, use instant interaction
+		if Input.is_action_just_pressed("interact"):
+			_try_interact()
+		return
+
+	# This object requires hold interaction
+	var is_pressing: bool = Input.is_action_pressed("interact")
+
+	if is_pressing and not is_holding_interact:
+		# Start holding
+		is_holding_interact = true
+		if interaction_progress_bar:
+			var action_text: String = "Taking Order"
+			if current_interactable.has_method("get_interaction_text"):
+				action_text = current_interactable.get_interaction_text()
+			interaction_progress_bar.start_interaction(current_interactable, action_text)
+			interaction_progress_bar.set_holding(true)
+
+	elif is_pressing and is_holding_interact:
+		# Continue holding
+		if interaction_progress_bar:
+			interaction_progress_bar.set_holding(true)
+
+	elif not is_pressing and is_holding_interact:
+		# Released the key
+		is_holding_interact = false
+		if interaction_progress_bar:
+			interaction_progress_bar.set_holding(false)
+
+func _on_interaction_completed(target: Node3D) -> void:
+	"""Called when hold-to-interact completes."""
+	print("[DEBUG] Interaction completed with: ", target.name if target else "null")
+	is_holding_interact = false
+
+	if target and target.has_method("interact"):
+		target.interact(self)
+		interacted_with.emit(target)

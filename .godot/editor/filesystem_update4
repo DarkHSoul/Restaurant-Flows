@@ -1,5 +1,6 @@
-res://src/characters/scripts/chef/ChefAI.gd
 res://src/characters/scripts/customers/CustomerAI.gd
-res://src/characters/scripts/waiter/WaiterAI.gd
-res://src/systems/scripts/CustomerSpawner.gd
-res://src/characters/scenes/Customer.tscn
+res://src/environment/scripts/CookingStation.gd
+res://src/environment/scripts/ServingCounter.gd
+res://src/systems/scripts/EconomyManager.gd
+res://src/ui/GameHUD.gd
+res://src/ui/OrderBoard.gd

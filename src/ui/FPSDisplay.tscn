@@ -1,0 +1,26 @@
+[gd_scene load_steps=2 format=3 uid="uid://b2qx8kw5fn3na"]
+
+[ext_resource type="Script" path="res://src/ui/FPSDisplay.gd" id="1_fps"]
+
+[node name="FPSDisplay" type="CanvasLayer" groups=["fps_display"]]
+process_mode = 3
+layer = 102
+script = ExtResource("1_fps")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -120.0
+offset_bottom = 50.0
+grow_horizontal = 0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="FPSLabel" type="Label" parent="MarginContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "FPS: 60"
+horizontal_alignment = 2

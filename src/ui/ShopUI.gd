@@ -12,6 +12,7 @@ class_name ShopUI
 
 var economy_manager: EconomyManager
 var game_manager: GameManager
+var pause_menu: PauseMenu  # Reference to pause menu if opened from there
 
 var is_open: bool = false
 var selected_index: int = 0
@@ -23,6 +24,10 @@ func _ready() -> void:
 	game_manager = GameManager.instance
 	if game_manager:
 		economy_manager = game_manager.economy_manager
+
+	# Find pause menu
+	await get_tree().process_frame
+	pause_menu = get_tree().get_first_node_in_group("pause_menu") as PauseMenu
 
 	# Connect signals
 	if close_button:
@@ -36,6 +41,15 @@ func _ready() -> void:
 	hide_shop()
 
 func _input(event: InputEvent) -> void:
+	# Toggle shop with P key
+	if event.is_action_pressed("toggle_shop"):
+		if is_open:
+			hide_shop()
+		else:
+			show_shop()
+		get_viewport().set_input_as_handled()
+		return
+
 	if not is_open:
 		return
 
@@ -66,7 +80,10 @@ func show_shop() -> void:
 	is_open = true
 	visible = true
 
-	# Pause the game
+	# Show mouse cursor
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+	# Pause the game only if not already paused
 	if game_manager and game_manager.current_state == GameManager.GameState.PLAYING:
 		get_tree().paused = true
 
@@ -80,8 +97,15 @@ func hide_shop() -> void:
 	is_open = false
 	visible = false
 
-	# Unpause the game
-	if game_manager:
+	# Only unpause and hide cursor if game is not in pause menu
+	if game_manager and game_manager.current_state == GameManager.GameState.PAUSED:
+		# Game is still paused (pause menu is open), keep mouse visible and show pause menu
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		if pause_menu and pause_menu.is_paused:
+			pause_menu.panel.visible = true
+	else:
+		# Return to normal gameplay
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		get_tree().paused = false
 
 func _refresh_shop() -> void:
@@ -201,6 +225,26 @@ func _on_money_changed(_new_amount: float, _change: float) -> void:
 	"""Called when money changes."""
 	if is_open:
 		_update_money_display()
+		_update_button_affordability()
+
+func _update_button_affordability() -> void:
+	"""Update button states based on current money."""
+	if not economy_manager:
+		return
+
+	for i in range(available_upgrades.size()):
+		if i < upgrade_buttons.size():
+			var button := upgrade_buttons[i]
+			var upgrade: Dictionary = available_upgrades[i]
+			var cost: float = upgrade.get("cost", 0.0)
+
+			# Update button state based on affordability
+			if economy_manager.can_afford(cost):
+				button.disabled = false
+				button.add_theme_color_override("font_color", Color(0.2, 1, 0.2))
+			else:
+				button.disabled = true
+				button.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 
 func _on_upgrade_purchased(_upgrade_id: String, _cost: float) -> void:
 	"""Called when an upgrade is purchased."""

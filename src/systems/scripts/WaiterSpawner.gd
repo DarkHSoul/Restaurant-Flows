@@ -37,7 +37,14 @@ func _spawn_initial_waiters() -> void:
 		var waiter := spawn_waiter()
 		if waiter:
 			print("[WAITER_SPAWNER] Spawned initial waiter %d/%d" % [i + 1, initial_waiter_count])
+
+		if not is_inside_tree():
+			return
+
 		await get_tree().create_timer(0.1).timeout  # Small delay between spawns
+
+		if not is_inside_tree():
+			return
 
 func _input(event: InputEvent) -> void:
 	# Listen for F6 key press to spawn waiter
@@ -67,8 +74,15 @@ func spawn_waiter() -> Waiter:
 		print("[WAITER_SPAWNER] Failed to create waiter!")
 		return null
 
-	# Add to scene
-	get_tree().root.add_child(waiter)
+	# Add to scene - use a safer parent
+	var scene_root = get_tree().current_scene
+	if scene_root:
+		scene_root.add_child(waiter)
+		print("[WAITER_SPAWNER] Waiter added to scene tree")
+	else:
+		print("[WAITER_SPAWNER] ERROR: Could not find scene root!")
+		waiter.queue_free()
+		return null
 
 	# Position waiter
 	var spawn_pos := spawn_position

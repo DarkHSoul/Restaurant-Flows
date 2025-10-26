@@ -29,6 +29,7 @@ enum State {
 @export var check_interval: float = 1.0  # How often to check for work
 @export var pickup_range: float = 2.0     # Range to detect food items
 @export var food_check_interval: float = 2.0  # How often to check for food when waiting
+@export var order_taking_duration: float = 3.0  # Time in seconds to take an order
 
 ## Visual customization
 @export_group("Appearance")
@@ -47,12 +48,14 @@ var _food_wait_timer: float = 0.0
 var _idle_position: Vector3 = Vector3.ZERO
 var _counter_reference: Node3D = null
 var _kitchen_position: Vector3 = Vector3.ZERO
+var _order_taking_timer: float = 0.0  # Timer for order taking progress
 
 ## References
 @onready var _agent: NavigationAgent3D = $NavigationAgent3D
 @onready var _visual: MeshInstance3D = $Visual
 @onready var _held_item_position: Marker3D = $HeldItemPosition
 var _status_label: Label3D = null
+var _progress_indicator: Node3D = null  # Will hold the circular progress UI
 
 func _ready() -> void:
 	# Setup navigation agent
@@ -79,8 +82,11 @@ func _ready() -> void:
 	# Create status label
 	_create_status_label()
 
-	# Store initial position as idle position
-	_idle_position = global_position
+	# Create progress indicator
+	_create_progress_indicator()
+
+	# Note: Idle position will be set by WaiterSpawner.set_idle_position()
+	# after the waiter is positioned in the scene
 
 	# Wait for navigation to be ready
 	call_deferred("_navigation_setup")
@@ -100,6 +106,11 @@ func _exit_tree() -> void:
 	if is_instance_valid(_status_label):
 		_status_label.queue_free()
 		_status_label = null
+
+	# Clean up progress indicator
+	if is_instance_valid(_progress_indicator):
+		_progress_indicator.queue_free()
+		_progress_indicator = null
 
 	# Clean up held food if still exists
 	if _held_food and is_instance_valid(_held_food):
@@ -125,10 +136,62 @@ func _create_status_label() -> void:
 	add_child(_status_label)
 	_update_status_display()
 
+func _create_progress_indicator() -> void:
+	"""Create a 3D circular progress indicator for order taking."""
+	# Create a Node3D container for the progress UI
+	_progress_indicator = Node3D.new()
+	_progress_indicator.name = "ProgressIndicator"
+	add_child(_progress_indicator)
+
+	# Position it at the same level as status label to surround the emoji
+	_progress_indicator.position = Vector3(0, 2.2, 0)
+
+	# Create a Sprite3D to display the circular progress
+	var sprite := Sprite3D.new()
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.pixel_size = 0.004  # Smaller size (was 0.01)
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+
+	# Create a viewport to render the circular progress
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(128, 128)  # Smaller viewport (was 200x200)
+	viewport.transparent_bg = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+	# Create the circular progress control
+	var progress_script := load("res://src/ui/CircularProgress.gd")
+	var progress_control := Control.new()
+	progress_control.set_script(progress_script)
+	progress_control.size = Vector2(128, 128)  # Match viewport size
+	progress_control.set("ring_color", Color(0.2, 0.8, 1.0, 0.9))  # Blue color to match waiter
+	progress_control.set("background_color", Color(0.2, 0.2, 0.2, 0.6))
+	progress_control.set("ring_thickness", 10.0)  # Thinner ring (was 15.0)
+	progress_control.set("ring_radius_offset", 8.0)  # Adjusted offset (was 10.0)
+	progress_control.set("progress", 0.0)
+
+	# Add to viewport
+	viewport.add_child(progress_control)
+	_progress_indicator.add_child(viewport)
+
+	# Set viewport texture to sprite
+	sprite.texture = viewport.get_texture()
+	_progress_indicator.add_child(sprite)
+
+	# Hide by default
+	_progress_indicator.visible = false
+
 func _physics_process(delta: float) -> void:
 	# Apply gravity
 	if not is_on_floor():
 		velocity += get_gravity() * delta
+
+	# Only process AI when game is playing
+	var game_manager = GameManager.instance
+	if not game_manager or game_manager.current_state != GameManager.GameState.PLAYING:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		move_and_slide()
+		return
 
 	_update_state_behavior(delta)
 
@@ -183,8 +246,18 @@ func _navigation_setup() -> void:
 	"""Called after navigation is ready."""
 	await get_tree().physics_frame
 
+	# Check if node is still valid before continuing
+	if not is_inside_tree():
+		return
+
 	# Wait a bit more for navigation map to be fully ready
-	await get_tree().create_timer(0.5).timeout
+	# Use process-based delay instead of timer to avoid crashes when node is freed
+	var wait_frames := 30  # ~0.5 seconds at 60 FPS
+	for i in wait_frames:
+		await get_tree().process_frame
+		# Check if we're still in the tree after each frame
+		if not is_inside_tree():
+			return
 
 	if _agent:
 		# Ensure agent is on the navigation map
@@ -193,6 +266,11 @@ func _navigation_setup() -> void:
 func _look_for_work() -> void:
 	"""Check if there are customers at tables waiting for service."""
 	if _state != State.IDLE:
+		return
+
+	# Don't look for new work if we're already assigned to something
+	if _assigned_customer != null or _held_food != null or _reserved_food != null:
+		print("[WAITER] Already working on something, skipping work check")
 		return
 
 	# Find serving counter reference
@@ -209,6 +287,11 @@ func _look_for_work() -> void:
 	if customer:
 		print("[WAITER] Found customer at table waiting for service! Moving to table...")
 		_assigned_customer = customer
+
+		# Assign this waiter to the customer to prevent other waiters from taking same order
+		if customer.has_method("assign_waiter"):
+			customer.assign_waiter(self)
+
 		_set_state(State.MOVING_TO_TABLE)
 
 		# Get customer's table position
@@ -226,6 +309,9 @@ func _look_for_work() -> void:
 			_open_doors_to_target(table_pos)
 		else:
 			print("[WAITER] ERROR: Customer has no assigned table!")
+			# Clear assignment on failure
+			if customer.has_method("clear_waiter_assignment"):
+				customer.clear_waiter_assignment()
 			_set_state(State.IDLE)
 
 func _check_for_ready_food_to_deliver() -> bool:
@@ -302,10 +388,7 @@ func _find_customer_waiting_for_service() -> Customer:
 				if customer.has_method("is_waiter_assigned") and customer.is_waiter_assigned():
 					continue  # Skip this customer, another waiter is already serving them
 
-				# Assign ourselves to this customer to prevent other waiters from taking them
-				if customer.has_method("assign_waiter"):
-					customer.assign_waiter(self)
-
+				# Return customer without assigning (assignment happens in _look_for_work)
 				return customer
 
 	return null
@@ -345,8 +428,35 @@ func _take_customer_order() -> void:
 		_set_state(State.IDLE)
 		return
 
+	# Show progress indicator and start timer
+	_order_taking_timer = 0.0
+	_show_progress_indicator(true)
+
+	# Animate order taking with progress bar
+	while _order_taking_timer < order_taking_duration:
+		await get_tree().process_frame
+		# Check if we're still valid after each frame
+		if not is_inside_tree() or not _assigned_customer or not is_instance_valid(_assigned_customer):
+			if is_inside_tree():
+				_show_progress_indicator(false)
+			return
+		_order_taking_timer += get_process_delta_time()
+		_update_progress_indicator(_order_taking_timer / order_taking_duration * 100.0)
+
+	# Hide progress indicator
+	_show_progress_indicator(false)
+
+	# Check validity before proceeding
+	if not is_inside_tree() or not _assigned_customer or not is_instance_valid(_assigned_customer):
+		return
+
 	# Get the order from customer at table (await because it's a coroutine)
 	var order := await _assigned_customer.take_order_at_table(self)
+
+	# Check validity after await
+	if not is_inside_tree():
+		return
+
 	if order.is_empty():
 		_set_state(State.IDLE)
 		return
@@ -357,24 +467,23 @@ func _take_customer_order() -> void:
 	# Emit signal
 	order_taken.emit(self, _assigned_customer, _current_order)
 
-	# Add order to HUD with table number
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hud and hud.has_method("add_order_display"):
-		var order_copy := _current_order.duplicate()
-		order_copy["customer"] = _assigned_customer
-		order_copy["table_number"] = _assigned_customer.get_assigned_table_number()
-		hud.add_order_display(order_copy)
+	# NOTE: Order is added to HUD by CustomerSpawner._on_customer_order_placed signal handler
+	# Do not add it here to avoid duplicates!
 
 	# Clear waiter assignment from customer
 	if _assigned_customer and _assigned_customer.has_method("clear_waiter_assignment"):
 		_assigned_customer.clear_waiter_assignment()
 
-	# Clear assignment and go back to IDLE to serve more customers
-	# Don't wait at counter - let the waiter take more orders first!
+	# Clear assignment
 	_assigned_customer = null
 	_current_order = {}
-	_set_state(State.IDLE)
+
+	# Check for nearby work before going idle
 	print("[WAITER] Order taken! Looking for more customers to serve...")
+	if not _check_for_nearby_work():
+		# No nearby work, go to IDLE state (will automatically return to station)
+		print("[WAITER] No nearby work found. Going to IDLE state...")
+		_set_state(State.IDLE)
 
 func _find_available_table() -> Node3D:
 	"""Find an available table for the customer."""
@@ -519,9 +628,9 @@ func _place_food_at_table() -> void:
 	# Position food at table
 	_held_food.global_position = food_pos
 
-	# Re-enable physics
+	# Keep food frozen when placed on table (prevents falling through)
 	if _held_food is RigidBody3D:
-		_held_food.freeze = false
+		_held_food.freeze = true
 
 	print("[WAITER] Delivered food to customer at table")
 
@@ -533,15 +642,28 @@ func _place_food_at_table() -> void:
 
 func _finish_delivery() -> void:
 	"""Complete the delivery process."""
+	print("[WAITER] _finish_delivery called!")
 	food_delivered.emit(self, _assigned_customer)
+
+	# Clear chef assignment from customer - order is now complete
+	if _assigned_customer and is_instance_valid(_assigned_customer):
+		if _assigned_customer.has_method("clear_chef_assignment"):
+			_assigned_customer.clear_chef_assignment()
 
 	# Clear assignment
 	_assigned_customer = null
 	_current_order = {}
 
-	# Don't return to idle position - go straight to IDLE state to look for more work
+	# Check if there's nearby work before returning to station
+	print("[WAITER] Checking for nearby work...")
+	if _check_for_nearby_work():
+		print("[WAITER] Found nearby work, continuing service...")
+		return
+
+	# No nearby work found, go to IDLE state
+	# The IDLE state will automatically trigger return to station
+	print("[WAITER] No nearby work. Going to IDLE state...")
 	_set_state(State.IDLE)
-	print("[WAITER] Delivery complete! Looking for more customers to serve...")
 
 func _update_movement(delta: float) -> void:
 	"""Handle navigation movement."""
@@ -772,6 +894,7 @@ func _set_state(new_state: State) -> void:
 	if _state == new_state:
 		return
 
+	var old_state := _state
 	_state = new_state
 	state_changed.emit(self, _state)
 	_update_status_display()
@@ -787,6 +910,20 @@ func _set_state(new_state: State) -> void:
 		if _reserved_food and is_instance_valid(_reserved_food) and _reserved_food.has_method("unreserve"):
 			_reserved_food.unreserve()
 			_reserved_food = null
+
+		# Only return to station if we're not coming from RETURNING state
+		# (to prevent infinite loop: RETURNING -> IDLE -> RETURNING -> IDLE -> ...)
+		if old_state != State.RETURNING:
+			# Return to idle position when entering IDLE state
+			# Only return if we're not already at idle position
+			var distance_to_idle := global_position.distance_to(_idle_position)
+			if distance_to_idle > arrival_tolerance:
+				print("[WAITER] Entering IDLE state. Returning to station from distance: %.2f" % distance_to_idle)
+				_return_to_station()
+			else:
+				print("[WAITER] Already at idle position (distance: %.2f)" % distance_to_idle)
+		else:
+			print("[WAITER] Arrived at idle position from RETURNING state")
 	elif new_state == State.WAITING_FOR_FOOD:
 		_food_wait_timer = 0.0
 		_check_timer = 0.0
@@ -828,3 +965,140 @@ func get_state() -> State:
 func set_idle_position(pos: Vector3) -> void:
 	"""Set the position where waiter should idle."""
 	_idle_position = pos
+	print("[WAITER] Idle position updated to: ", pos)
+
+func _show_progress_indicator(show_progress: bool) -> void:
+	"""Show or hide the circular progress indicator."""
+	if _progress_indicator:
+		_progress_indicator.visible = show_progress
+		if not show_progress:
+			# Reset progress when hiding
+			_update_progress_indicator(0.0)
+
+func _update_progress_indicator(progress: float) -> void:
+	"""Update the progress indicator percentage (0-100)."""
+	if not _progress_indicator:
+		return
+
+	# Find the viewport and its progress control child
+	for child in _progress_indicator.get_children():
+		if child is SubViewport:
+			for viewport_child in child.get_children():
+				if viewport_child is Control and "progress" in viewport_child:
+					viewport_child.set("progress", progress)
+					break
+			break
+
+## New methods for improved behavior
+
+func _check_for_nearby_work() -> bool:
+	"""Check if there's any work nearby (customers waiting or food ready) to avoid unnecessary travel."""
+	# Don't look for new work if we're already assigned to something
+	if _assigned_customer != null or _held_food != null or _reserved_food != null:
+		print("[WAITER] Already working on something, skipping nearby work check")
+		return false
+
+	# Check for nearby customers waiting for service (within 5 units)
+	var nearby_customer := _find_nearby_waiting_customer(5.0)
+	if nearby_customer:
+		print("[WAITER] Found nearby customer waiting for service!")
+		_assigned_customer = nearby_customer
+
+		# Assign this waiter to the customer to prevent other waiters from taking same order
+		if nearby_customer.has_method("assign_waiter"):
+			nearby_customer.assign_waiter(self)
+
+		var table := nearby_customer.get_assigned_table()
+		if table:
+			_set_state(State.MOVING_TO_TABLE)
+			var table_pos := table.global_position
+			_move_to(table_pos)
+			_open_doors_to_target(table_pos)
+			return true
+
+	# Check if there's food ready at serving counter (if we're near it)
+	if global_position.distance_to(_kitchen_position) < 8.0:
+		if _check_for_ready_food_to_deliver():
+			print("[WAITER] Found ready food nearby to deliver!")
+			return true
+
+	return false
+
+func _find_nearby_waiting_customer(max_distance: float) -> Customer:
+	"""Find the closest customer waiting for service within max_distance."""
+	var customers := get_tree().get_nodes_in_group("customers")
+	var closest_customer: Customer = null
+	var closest_distance: float = max_distance
+
+	for customer in customers:
+		if not customer or not is_instance_valid(customer):
+			continue
+
+		# Check if customer is waiting for waiter (State.WAITING_FOR_WAITER = 1)
+		if customer.has_method("get_state"):
+			var customer_state = customer.get_state()
+			if customer_state == 1:  # WAITING_FOR_WAITER
+				# Check if not already assigned to another waiter
+				if customer.has_method("is_waiter_assigned") and customer.is_waiter_assigned():
+					continue
+
+				var distance := global_position.distance_to(customer.global_position)
+				if distance < closest_distance:
+					closest_distance = distance
+					closest_customer = customer
+
+	return closest_customer
+
+func _return_to_station() -> void:
+	"""Return to the waiter's idle position (station)."""
+	print("[WAITER] _return_to_station called. Current pos: ", global_position, " | Idle pos: ", _idle_position)
+
+	# Calculate idle position with clustering prevention
+	var final_idle_pos := _calculate_idle_position_with_offset()
+	print("[WAITER] Final idle position with offset: ", final_idle_pos)
+
+	_set_state(State.RETURNING)
+	_move_to(final_idle_pos)
+	_open_doors_to_target(final_idle_pos)
+	print("[WAITER] Moving to station complete!")
+
+func _calculate_idle_position_with_offset() -> Vector3:
+	"""Calculate idle position with offset to prevent waiters clustering in same spot."""
+	# Count nearby waiters at idle position
+	var nearby_count := _count_nearby_waiters(_idle_position, 1.5)
+
+	if nearby_count == 0:
+		return _idle_position
+
+	# Create offset based on waiter count to spread them out
+	# Use a circular pattern
+	var angle := nearby_count * (PI / 3.0)  # 60 degrees between each waiter
+	var radius := 0.8
+	var offset := Vector3(cos(angle) * radius, 0, sin(angle) * radius)
+
+	return _idle_position + offset
+
+func _count_nearby_waiters(check_position: Vector3, radius: float) -> int:
+	"""Count how many waiters are near a given position."""
+	var waiters := get_tree().get_nodes_in_group("waiters")
+	var count := 0
+
+	for waiter in waiters:
+		if not waiter or not is_instance_valid(waiter):
+			continue
+
+		# Skip self
+		if waiter == self:
+			continue
+
+		# Skip waiters that are not IDLE or RETURNING
+		if waiter.has_method("get_state"):
+			var waiter_state = waiter.get_state()
+			if waiter_state != State.IDLE and waiter_state != State.RETURNING:
+				continue
+
+		# Check distance
+		if waiter.global_position.distance_to(check_position) < radius:
+			count += 1
+
+	return count

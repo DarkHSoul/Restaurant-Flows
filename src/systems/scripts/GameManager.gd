@@ -63,6 +63,13 @@ func _input(event: InputEvent) -> void:
 		elif current_state == GameState.PAUSED:
 			resume_game()
 
+	# Debug key: F9 to add money
+	if event is InputEventKey:
+		if event.pressed and event.keycode == KEY_F9:
+			if economy_manager:
+				economy_manager.add_money(100.0, "debug")
+				print("[DEBUG] F9 pressed - Added $100. Current money: $", economy_manager.current_money)
+
 ## Public interface
 
 func start_game() -> void:

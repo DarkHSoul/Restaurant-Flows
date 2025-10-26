@@ -23,9 +23,6 @@ signal customer_left(customer: Customer, was_satisfied: bool)
 @export var order_board: Node3D = null  # OrderBoard
 @export var auto_seat: bool = true
 
-## Exit
-@export var exit_position: Vector3 = Vector3(0, 0, 10)
-
 ## References
 var _tables: Array[Table] = []
 var _customers_waiting_for_table: Array[Customer] = []  # Customers who ordered, waiting for table
@@ -35,6 +32,7 @@ var _next_spawn_time: float = 0.0
 
 @onready var _spawn_point: Marker3D = $SpawnPoint
 @onready var _entrance_marker: Marker3D = $EntranceMarker
+@onready var _exit_marker: Marker3D = $ExitMarker
 
 func _ready() -> void:
 	# Add to group for easy finding
@@ -55,6 +53,11 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	# Clean up invalid references periodically
 	_clean_invalid_references()
+
+	# Only spawn/seat customers when game is playing
+	var game_manager = GameManager.instance
+	if not game_manager or game_manager.current_state != GameManager.GameState.PLAYING:
+		return
 
 	if auto_spawn:
 		_update_spawning(delta)
@@ -120,9 +123,13 @@ func spawn_customer() -> Customer:
 	customer.order_received.connect(_on_customer_order_received)
 	customer.left_restaurant.connect(_on_customer_left_restaurant)
 
-	# Set exit position
-	if customer.has_method("set_exit_position"):
-		customer.set_exit_position(exit_position)
+	# Set exit position from ExitMarker
+	if customer.has_method("set_exit_position") and _exit_marker:
+		customer.set_exit_position(_exit_marker.global_position)
+	elif customer.has_method("set_exit_position"):
+		# Fallback to spawn point if ExitMarker doesn't exist
+		var fallback_exit := global_position + Vector3(0, 0, 1)
+		customer.set_exit_position(fallback_exit)
 
 	_active_customers.append(customer)
 
@@ -166,14 +173,7 @@ func seat_customer(customer: Customer, table: Table) -> bool:
 
 	customer_seated.emit(customer, table)
 
-	# Now that table is assigned, add order to HUD with correct table number
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hud and hud.has_method("add_order_display"):
-		var order := customer.get_order()
-		if not order.is_empty():
-			order["customer"] = customer
-			order["table_number"] = customer.get_assigned_table_number()
-			hud.add_order_display(order)
+	# Order will be added to HUD when customer places order via _on_customer_order_placed signal
 
 	return true
 
@@ -310,9 +310,14 @@ func _on_order_taken_at_counter(customer: Customer, order: Dictionary) -> void:
 
 func _on_customer_order_placed(customer: Customer, order: Dictionary) -> void:
 	"""Customer has placed an order."""
-	# Don't add to HUD yet - will be added when table is assigned in seat_customer()
-	# This ensures the correct table number is shown
-	pass
+	# Add order to HUD with table number
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("add_order_display"):
+		var order_data := order.duplicate()
+		order_data["customer"] = customer
+		order_data["table_number"] = customer.get_assigned_table_number()
+		hud.add_order_display(order_data)
+		print("[SPAWNER] Order added to HUD: ", order.get("name"), " for table ", customer.get_assigned_table_number())
 
 func _on_customer_order_received(customer: Customer) -> void:
 	"""Customer received their food."""

@@ -1,4 +1,4 @@
-[gd_scene load_steps=40 format=3 uid="uid://c3qw7n5hy8r2m"]
+[gd_scene load_steps=42 format=3 uid="uid://c3qw7n5hy8r2m"]
 
 [ext_resource type="PackedScene" uid="uid://dxy4qr7bvn2yw" path="res://src/characters/scenes/Player.tscn" id="1_player"]
 [ext_resource type="PackedScene" uid="uid://bsxw6h2nq3r8f" path="res://src/ui/GameHUD.tscn" id="2_hud"]
@@ -11,13 +11,15 @@
 [ext_resource type="PackedScene" uid="uid://dmkq8hw3pr7yi" path="res://src/environment/scenes/PrepCounter.tscn" id="9_prep"]
 [ext_resource type="PackedScene" uid="uid://cpadl046r15r8" path="res://src/ui/OrderBoard.tscn" id="13_orderboard"]
 [ext_resource type="PackedScene" uid="uid://5wo00kdmfe6j" path="res://src/environment/scenes/Door.tscn" id="14_door"]
-[ext_resource type="Script" uid="uid://cded32yllrvdj" path="res://src/environment/scripts/WindowCounter.gd" id="15_window_counter"]
-[ext_resource type="Script" path="res://src/environment/scripts/OrderCounter.gd" id="15_order_counter"]
 [ext_resource type="Script" uid="uid://326w0tx0pu00" path="res://src/environment/scripts/ServingCounter.gd" id="15_serving_counter"]
 [ext_resource type="PackedScene" uid="uid://ca8k3vb2qwc7h" path="res://src/ui/ShopUI.tscn" id="16_shop_ui"]
+[ext_resource type="PackedScene" uid="uid://dpw8x3kv2n5m4" path="res://src/ui/PauseMenu.tscn" id="16_pause_menu"]
+[ext_resource type="PackedScene" uid="uid://b5mn8qr3xw4k7" path="res://src/ui/SettingsMenu.tscn" id="16_settings_menu"]
+[ext_resource type="PackedScene" uid="uid://c4xp9m7n2q8k5" path="res://src/ui/MainMenu.tscn" id="16_main_menu"]
+[ext_resource type="PackedScene" uid="uid://b2qx8kw5fn3m9" path="res://src/ui/FPSDisplay.tscn" id="16_fps_display"]
 [ext_resource type="Script" uid="uid://ce5yut81yf4" path="res://src/systems/scripts/WaiterSpawner.gd" id="17_waiter_spawner"]
-[ext_resource type="Script" path="res://src/systems/scripts/ChefSpawner.gd" id="18_chef_spawner"]
-[ext_resource type="PackedScene" uid="uid://c5k7j8m9n6p2q" path="res://src/characters/scenes/Chef.tscn" id="19_chef"]
+[ext_resource type="Script" uid="uid://7pg8hw4c7ox4" path="res://src/systems/scripts/ChefSpawner.gd" id="18_chef_spawner"]
+[ext_resource type="PackedScene" uid="uid://c5k7j8nan6p2q" path="res://src/characters/scenes/Chef.tscn" id="19_chef"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -66,14 +68,14 @@ material = SubResource("StandardMaterial3D_wall")
 size = Vector3(8.82, 4, 0.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_section_door"]
-size = Vector3(4.5, 4, 0.3)
+size = Vector3(8.196598, 4, 0.3)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall_section"]
 material = SubResource("StandardMaterial3D_wall")
 size = Vector3(8.1, 4, 0.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_section"]
-size = Vector3(7, 4, 0.3)
+size = Vector3(7.7436523, 4, 0.3)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glass"]
 transparency = 1
@@ -83,7 +85,7 @@ roughness = 0.1
 
 [sub_resource type="BoxMesh" id="BoxMesh_window_glass"]
 material = SubResource("StandardMaterial3D_glass")
-size = Vector3(3.55, 2, 0.1)
+size = Vector3(3.55, 1, 0.1)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wood_counter"]
 albedo_color = Color(0.4, 0.25, 0.15, 1)
@@ -94,24 +96,24 @@ material = SubResource("StandardMaterial3D_wood_counter")
 size = Vector3(3.55, 0.1, 0.6)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wood_counter"]
-size = Vector3(3.5, 0.1, 0.6)
+size = Vector3(3.43573, 0.1, 0.6)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall_filler_top"]
 material = SubResource("StandardMaterial3D_wall")
 size = Vector3(5.1, 1.5, 0.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_filler_top"]
-size = Vector3(5.1, 1.5, 0.3)
+size = Vector3(3.5580812, 1.5, 0.3)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall_filler_bottom"]
 material = SubResource("StandardMaterial3D_wall")
-size = Vector3(3.55, 0.5, 0.3)
+size = Vector3(3.55, 1, 0.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_filler_bottom"]
-size = Vector3(3.5, 0.5, 0.3)
+size = Vector3(3.4995117, 0.93359375, 0.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_gap_filler"]
-size = Vector3(4.25, 4, 0.3)
+size = Vector3(7.2439537, 4, 0.3)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall_gap_filler"]
 material = SubResource("StandardMaterial3D_wall")
@@ -164,6 +166,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.451334, -0.013344288, 0.007
 mesh = SubResource("BoxMesh_wall_section_door")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="NavigationRegion3D/Walls/WallSouth/WallSouthLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.19869995, 0, 0)
 shape = SubResource("BoxShape3D_wall_section_door")
 
 [node name="WallSouthRight" type="StaticBody3D" parent="NavigationRegion3D/Walls/WallSouth"]
@@ -174,6 +177,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.7683511, 0, 0)
 mesh = SubResource("BoxMesh_wall_section_door")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="NavigationRegion3D/Walls/WallSouth/WallSouthRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.74749756, 0, 0)
 shape = SubResource("BoxShape3D_wall_section_door")
 
 [node name="EntranceDoorLeft" parent="NavigationRegion3D/Walls/WallSouth" instance=ExtResource("14_door")]
@@ -246,6 +250,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.71169424, 0, 0)
 mesh = SubResource("BoxMesh_wall_section_door")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="KitchenDividingWall/WallNorthSection"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.49596977, 0, 0)
 shape = SubResource("BoxShape3D_wall_section_door")
 
 [node name="WallSouthSection" type="StaticBody3D" parent="KitchenDividingWall"]
@@ -256,10 +261,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.19596958, 0, 0)
 mesh = SubResource("BoxMesh_wall_section")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="KitchenDividingWall/WallSouthSection"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.37182617, 0, 0)
 shape = SubResource("BoxShape3D_wall_section")
 
 [node name="WindowGlass" type="MeshInstance3D" parent="KitchenDividingWall"]
-transform = Transform3D(-4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 1.5, 0)
+transform = Transform3D(-4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0.0421021, 1.9538703, -0.010570347)
 mesh = SubResource("BoxMesh_window_glass")
 
 [node name="WoodenCounter" type="StaticBody3D" parent="KitchenDividingWall" groups=["serving_counter"]]
@@ -271,6 +277,7 @@ script = ExtResource("15_serving_counter")
 mesh = SubResource("BoxMesh_wood_counter")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="KitchenDividingWall/WoodenCounter"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03213501, 0, 0)
 shape = SubResource("BoxShape3D_wood_counter")
 
 [node name="FoodPosition" type="Marker3D" parent="KitchenDividingWall/WoodenCounter"]
@@ -278,10 +285,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 
 [node name="CookingLight" type="OmniLight3D" parent="KitchenDividingWall/WoodenCounter"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+visible = false
 light_color = Color(1, 0.8, 0.4, 1)
 light_energy = 0.5
 omni_range = 2.0
-visible = false
 
 [node name="WallFillerTop" type="StaticBody3D" parent="KitchenDividingWall"]
 transform = Transform3D(-4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 3.5, 0)
@@ -291,22 +298,25 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.77037466, -0.24812889, 0)
 mesh = SubResource("BoxMesh_wall_filler_top")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="KitchenDividingWall/WallFillerTop"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.717638, -0.25496674, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.05332136, -0.25496674, 0)
 shape = SubResource("BoxShape3D_wall_filler_top")
 
 [node name="WallFillerBottom" type="StaticBody3D" parent="KitchenDividingWall"]
 transform = Transform3D(-4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 0.25, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="KitchenDividingWall/WallFillerBottom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.17373872, 0)
 mesh = SubResource("BoxMesh_wall_filler_bottom")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="KitchenDividingWall/WallFillerBottom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.012939453, 0.21679688, 0)
 shape = SubResource("BoxShape3D_wall_filler_bottom")
 
 [node name="WallGapFillerNorth" type="StaticBody3D" parent="KitchenDividingWall"]
 transform = Transform3D(-4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 2, -5.625)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="KitchenDividingWall/WallGapFillerNorth"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.3166637, 0, 2.3841858e-07)
 shape = SubResource("BoxShape3D_wall_gap_filler")
 
 [node name="WallGapFillerSouth" type="StaticBody3D" parent="KitchenDividingWall"]
@@ -316,6 +326,7 @@ transform = Transform3D(-4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, 0, 2, 
 mesh = SubResource("BoxMesh_wall_gap_filler")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="KitchenDividingWall/WallGapFillerSouth"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.17361069, 0, 0)
 shape = SubResource("BoxShape3D_wall_gap_filler")
 
 [node name="KitchenDoor" parent="KitchenDividingWall" instance=ExtResource("14_door")]
@@ -334,6 +345,9 @@ order_board = NodePath("../StaffArea/OrderBoard")
 
 [node name="EntranceMarker" type="Marker3D" parent="CustomerSpawner"]
 
+[node name="ExitMarker" type="Marker3D" parent="CustomerSpawner"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.5)
+
 [node name="WaiterSpawner" type="Node" parent="."]
 script = ExtResource("17_waiter_spawner")
 spawn_position = Vector3(2, 1, 8)
@@ -344,8 +358,6 @@ chef_scene = ExtResource("19_chef")
 spawn_position = Vector3(-5, 0, -2)
 storage_position = Vector3(-7, 0, -2)
 max_chefs = 2
-auto_spawn_initial_chefs = true
-initial_chef_count = 1
 
 [node name="Player" parent="." groups=["player"] instance=ExtResource("1_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 5)
@@ -353,6 +365,14 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 5)
 [node name="GameHUD" parent="." instance=ExtResource("2_hud")]
 
 [node name="ShopUI" parent="." instance=ExtResource("16_shop_ui")]
+
+[node name="SettingsMenu" parent="." instance=ExtResource("16_settings_menu")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("16_pause_menu")]
+
+[node name="MainMenu" parent="." instance=ExtResource("16_main_menu")]
+
+[node name="FPSDisplay" parent="." instance=ExtResource("16_fps_display")]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.05563897, 3.235274, 9.994219)
