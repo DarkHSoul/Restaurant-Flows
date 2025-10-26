@@ -35,7 +35,6 @@ var _placed_foods: Array[FoodItem] = []
 var _is_highlighted: bool = false
 var _is_cooking: bool = false  # Tracks if ANY food is cooking (updated in _process)
 var _interaction_area: Area3D = null
-var _progress_bar: Control = null
 var _cached_material: StandardMaterial3D = null  # Reuse material to prevent memory leaks
 var _cooking_sound_player: AudioStreamPlayer3D = null  # For looping cooking sounds
 var _steam_particles: GPUParticles3D = null  # Steam effect while cooking
@@ -55,13 +54,13 @@ func _ready() -> void:
 		_light.visible = false
 
 	_setup_interaction_area()
-	_setup_progress_bar()
 	_setup_cooking_sound()
 	_setup_steam_particles()
 
 func _process(delta: float) -> void:
 	# Check if ANY food is cooking (foods handle their own timers)
 	var any_cooking := false
+
 	for food in _placed_foods:
 		if is_instance_valid(food) and food.has_method("get_cooking_state"):
 			var food_state = food.get_cooking_state()
@@ -157,9 +156,12 @@ func place_food(food: FoodItem, player: Node3D = null) -> bool:
 	if food.has_method("set"):
 		food._current_station = self
 
-	# Position food on station
+	# Position food on station with vertical offset to prevent overlap
 	if _food_position:
-		food.global_position = _food_position.global_position
+		# Calculate vertical offset based on number of existing foods (stack them)
+		var food_index := _placed_foods.size() - 1  # Current index (already added to array)
+		var offset := Vector3(0, food_index * 0.4, 0)  # Stack vertically
+		food.global_position = _food_position.global_position + offset
 		food.global_rotation = Vector3.ZERO
 
 	# Freeze food in place and disable collisions to prevent pickup during cooking
@@ -365,11 +367,6 @@ func _update_visual() -> void:
 
 	_visual.material_override = _cached_material
 
-func _setup_progress_bar() -> void:
-	"""Create and setup the progress bar."""
-	# DISABLED: Using chef's 3D circular progress instead of station progress
-	return
-
 func _setup_cooking_sound() -> void:
 	"""Create and setup the 3D audio player for cooking sounds."""
 	_cooking_sound_player = AudioStreamPlayer3D.new()
@@ -471,12 +468,3 @@ func _setup_steam_particles() -> void:
 	particle_mesh.material = mesh_material
 
 	_steam_particles.draw_pass_1 = particle_mesh
-
-func _update_progress_bar(progress: float) -> void:
-	"""Update the progress bar value."""
-	if not _progress_bar:
-		return
-
-	var progress_bar_node := _progress_bar.get_node("MarginContainer/ProgressBar") as ProgressBar
-	if progress_bar_node:
-		progress_bar_node.value = progress

@@ -23,14 +23,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Testing & Debugging
 - Use debug spawn keys:
-  - **F7** - Spawn test customer
-  - **F6** - Spawn waiter
+  - **F7** - Spawn test customer (spawns at entrance, assigns table automatically)
+  - **F6** - Spawn waiter (spawns at designated spawn point)
   - **F10** - Spawn chef (changed from F8 to avoid conflict with Godot editor stop)
 - Toggle shop UI with **Tab** key to test economy system
 - Use **ESC** for pause menu functionality testing
+- Press **H** to toggle tutorial overlay (shows controls and tips)
 - Monitor customer satisfaction with emotion labels above customers (😊, 🤔, 😠, 📝, 🍽️, ⏰, 😤, 😋, 😃, 😞)
 - View customer orders with order emoji labels below emotion (🍕, 🍔, 🍝, 🥗, 🍲)
 - Use `mcp__godot__get_debug_output` to track cooking timer issues and order validation errors
+- Hold **E** on customers to take orders (requires 1.5s hold, shows progress bar)
 
 ## Architecture
 
@@ -71,12 +73,14 @@ The game operates through a signal-driven event system:
 ### Input Actions (project.godot)
 - WASD: movement (move_forward, move_backward, move_left, move_right)
 - Shift: sprint
-- E: interact
+- E: interact (hold for customer orders, instant for stations/doors)
 - Left Click: pickup/drop food items
 - ESC: pause (ui_cancel)
 - Tab: toggle shop UI (toggle_orders)
 - H: toggle tutorial help overlay
 - F7: manual debug spawn customer (via _input in CustomerSpawner)
+- F6: manual debug spawn waiter
+- F10: manual debug spawn chef
 
 ### Player Interaction System
 The player can actively help in the restaurant by cooking and preparing food:
@@ -110,6 +114,22 @@ The player can actively help in the restaurant by cooking and preparing food:
 - Order validation system prevents duplicate cooking
 - Chefs bypass order validation (they've already claimed the order)
 - Player must have active customer orders to place food
+
+**Hold-to-Interact System:**
+- Player can manually take orders from customers
+- Hold **E** key for 1.5 seconds while looking at a customer
+- Circular progress bar shows interaction progress (InteractionProgressBar UI)
+- Progress decays 2x speed when released (prevents accidental interactions)
+- Only customers in WAITING_FOR_WAITER state can have orders taken
+- Completing interaction triggers Customer.interact() and places order
+- Other interactions (stations, doors) use instant interaction
+
+**Tutorial System:**
+- Press **H** to toggle tutorial overlay at any time
+- Shows comprehensive control list and gameplay tips
+- Auto-fades after 15 seconds on first launch
+- Can be re-shown anytime with H key
+- Displays in top-left corner with semi-transparent background
 
 ## Code Patterns
 
@@ -195,7 +215,13 @@ The UI system uses a layered approach with real-time data binding:
 - **DailyReportUI**: End-of-day financial summary with revenue breakdown
 - **OrderBoard**: Active order tracking display showing pending customer orders
 - **EconomyStatsUI**: Real-time economic statistics and performance metrics
-- **CookingProgressBar**: Visual feedback for station cooking progress (if implemented)
+- **InteractionProgressBar**: Circular progress bar for hold-to-interact actions (1.5s fill time, decays when released)
+- **TutorialOverlay**: H-key toggleable help overlay showing controls and tips (auto-hides after 15s)
+- **CookingProgressBar**: 3D Label3D progress bars above cooking stations (shows visual bar + percentage)
+  - Displays while food is cooking on stations
+  - Color-coded: Yellow (0-30%), Orange (30-70%), Green (70-100%)
+  - Format: [████████░░] 80%
+  - Billboard-enabled, always faces camera
 - All UI components connect to singleton managers via signals for real-time updates
 - UI responds to economy events (money changes, expenses, upgrades)
 
@@ -210,7 +236,7 @@ The game features integrated audio feedback and visual particle effects:
 - Sound files location: `assets/audio/sfx/` (supports .wav, .ogg, .mp3)
 - Max 16 simultaneous sound effects via player pool
 
-**Sound Effects Implemented**:
+**Sound Effects Implemented** (⚠️ Audio code ready, files need to be added to `assets/audio/sfx/`):
 - **order_ding** - Plays when customer order is taken (3D positioned)
 - **customer_happy** - Plays when satisfaction >70% and increases (3D positioned)
 - **customer_neutral** - Plays when satisfaction 30-60% and decreases (3D positioned)
@@ -219,6 +245,7 @@ The game features integrated audio feedback and visual particle effects:
 - **cooking_sizzle** - Looping sound for stove cooking (burger, pasta, soup)
 - **cooking_chop** - Looping sound for prep counter (salad)
 - **cooking_generic** - Fallback looping cooking sound
+- See `assets/audio/AUDIO_SETUP.md` for audio file requirements and sources
 
 **Particle Effects**:
 - **Steam Particles** (CookingStation):
@@ -240,11 +267,17 @@ The game features integrated audio feedback and visual particle effects:
 - All audio is non-blocking and managed by AudioManager singleton
 
 **Adding New Audio**:
-1. Place audio files in `assets/audio/sfx/`
+1. Place audio files in `assets/audio/sfx/` (supports .wav, .ogg, .mp3)
 2. Call `AudioManager.instance.play_sfx(sound_name)` for 2D sounds
 3. Call `AudioManager.instance.play_sfx_3d(sound_name, position)` for 3D sounds
 4. For looping sounds, use AudioStreamPlayer3D directly and set loop mode
-5. See `assets/audio/AUDIO_SETUP.md` for complete audio setup guide
+5. See `assets/audio/AUDIO_SETUP.md` for complete audio setup guide and free sound resources
+
+**Audio Status**:
+- ✅ AudioManager singleton implemented and working
+- ✅ All audio hooks integrated into game systems
+- ✅ 3D spatial audio with distance attenuation
+- ⚠️ Audio files need to be added (game will show warnings but continue working)
 
 ## File Organization
 
@@ -264,8 +297,11 @@ Example: Player3D.tscn → PlayerController.gd
   - CookingStation, Stove, Oven, PrepCounter, Table, Door, TrashBin, ServingCounter
 - `src/systems/` - Game systems (GameManager, OrderManager, CustomerSpawner, WaiterSpawner, ChefSpawner, FoodItem)
 - `src/ui/` - HUD, menus, and UI components
-  - GameHUD, ShopUI, OrderBoard, DailyReportUI, EconomyStatsUI
+  - GameHUD, ShopUI, OrderBoard, DailyReportUI, EconomyStatsUI, InteractionProgressBar, TutorialOverlay
 - `src/main/` - Main scene entry point (Main3D.tscn)
+- `assets/audio/` - Audio files and documentation
+  - `sfx/` - Sound effect files (.wav, .ogg, .mp3)
+  - `AUDIO_SETUP.md` - Audio requirements and setup guide
 
 ## Important Constants
 
@@ -468,3 +504,34 @@ func place_food(food: FoodItem, player: Node3D = null) -> bool:
 ### Process Modes
 - GameManager uses `Node.PROCESS_MODE_ALWAYS` for pause menu functionality
 - UI components should handle pause states appropriately
+
+## Known Issues & Warnings
+
+### Non-Critical Warnings (Safe to Ignore)
+These warnings appear in debug output but don't affect gameplay:
+- `AudioManager._sound_cache` declared but never used (reserved for future optimization)
+- `CustomerAI.old_satisfaction` unused local variable (line 792)
+- `Table.gd` integer division warning (line 206) - intentional behavior
+- `CookingStation._process(delta)` unused parameter (line 62)
+- `Door.interact(player)` unused parameter (line 64)
+- `PlayerController.gd` ternary operator type compatibility (lines 260, 277, 398) - works correctly
+- `GameHUD.gd` integer division warning (line 74) - intentional behavior
+- `TutorialOverlay.is_visible` shadows CanvasItem method (line 21) - local var, no conflict
+- `OrderBoard.order_selected` signal unused (line 6) - reserved for future feature
+- `OrderBoard._orders_container` unused variable (line 25) - reserved for future feature
+
+### Active Warnings to Fix
+- **CustomerSpawner**: "No order counter found!" warning
+  - Order counter UI node missing from Main3D scene
+  - Functionality works without it, but UI element should be added
+
+### Missing Features (Documented for Future Implementation)
+- **Main Menu**: Game starts directly in Main3D scene (needs start screen)
+- **Pause Menu UI**: ESC works but needs full pause UI with buttons
+- **Save/Load System**: No progress persistence between sessions
+- **Audio Files**: AudioManager ready but sound files need to be added to `assets/audio/sfx/`
+- **Speech Bubbles**: Exist in CustomerAI but disabled (line 60-61), emoji labels used instead
+
+### Debug Output Spam
+- Chef AI checks for orders every frame (frequent "[DEBUG SPAWNER] Checking 0 active customers" messages)
+- This is intentional for responsive AI but can be reduced if performance becomes an issue

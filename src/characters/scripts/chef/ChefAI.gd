@@ -264,16 +264,26 @@ func _look_for_orders() -> void:
 
 	for order in active_orders:
 		var order_type: String = order.get("type", "")
+		var order_status: String = order.get("status", "pending")
+
+		# Skip orders that are already being handled (cooking, ready, or delivering)
+		# Only process "pending" orders to prevent duplicate cooking
+		if order_status != "pending":
+			# Disabled debug spam for performance
+			# print("[CHEF DEBUG] Order '", order_type, "' is already ", order_status, ", skipping")
+			continue
 
 		# Check if we have enough food on counter for pending orders
 		var food_on_counter: int = _count_food_on_counter(order_type)
 		var pending_orders: int = _count_pending_orders(order_type)
 
-		print("[CHEF DEBUG] Food type '", order_type, "': ", food_on_counter, " on counter, ", pending_orders, " pending orders")
+		# Disabled debug spam for performance
+		# print("[CHEF DEBUG] Food type '", order_type, "': ", food_on_counter, " on counter, ", pending_orders, " pending orders")
 
 		# If we have enough food on counter, skip this food type
 		if food_on_counter >= pending_orders:
-			print("[CHEF DEBUG] Enough '", order_type, "' on counter, skipping")
+			# Disabled debug spam for performance
+			# print("[CHEF DEBUG] Enough '", order_type, "' on counter, skipping")
 			continue
 
 		var found_unassigned := false

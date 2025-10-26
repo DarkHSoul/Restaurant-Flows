@@ -181,7 +181,8 @@ func get_active_orders() -> Array[Dictionary]:
 	"""Get all active customer orders from customers who have placed orders and are waiting for food."""
 	var orders: Array[Dictionary] = []
 
-	print("[DEBUG SPAWNER] Checking ", _active_customers.size(), " active customers for orders")
+	# Disabled debug spam for performance
+	# print("[DEBUG SPAWNER] Checking ", _active_customers.size(), " active customers for orders")
 	for customer in _active_customers:
 		if is_instance_valid(customer):
 			# Check if customer is seated at a table
@@ -190,24 +191,18 @@ func get_active_orders() -> Array[Dictionary]:
 				# Check if customer has placed an order and is waiting for food
 				if customer.has_method("get_state"):
 					var customer_state = customer.get_state()
-					print("[DEBUG SPAWNER]   Customer at table ", customer.get_assigned_table_number(), " is in state: ", customer_state)
+					# print("[DEBUG SPAWNER]   Customer at table ", customer.get_assigned_table_number(), " is in state: ", customer_state)
 					# State 3 = WAITING_FOR_FOOD (from NEW CustomerAI.State enum: 0=ENTERING, 1=WAITING_FOR_WAITER, 2=ORDERING, 3=WAITING_FOR_FOOD)
 					if customer_state == 3:  # WAITING_FOR_FOOD
-						# Check if food is already in delivery - if so, skip this order
-						var food_in_delivery := false
-						if customer.has_method("is_food_in_delivery"):
-							food_in_delivery = customer.is_food_in_delivery()
-
-						if food_in_delivery:
-							print("[DEBUG SPAWNER]     -> Order is in delivery, skipping")
-							continue
-
+						# Include ALL orders, even if in delivery (for OrderBoard display)
+						# The delivering status will be shown in OrderBoard UI
 						var order := customer.get_order()
 						if not order.is_empty():
 							orders.append(order)
-							print("[DEBUG SPAWNER]     -> Found active order: ", order.get("type"))
+							# var status: String = order.get("status", "pending")
+							# print("[DEBUG SPAWNER]     -> Found active order: ", order.get("type"), " [", status, "]")
 
-	print("[DEBUG SPAWNER] get_active_orders() returning ", orders.size(), " orders")
+	# print("[DEBUG SPAWNER] get_active_orders() returning ", orders.size(), " orders")
 	return orders
 
 func get_waiting_count() -> int:

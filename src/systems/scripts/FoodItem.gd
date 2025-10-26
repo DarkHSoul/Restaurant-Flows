@@ -47,6 +47,8 @@ var _is_being_held: bool = false
 var _current_station: Node3D = null
 var _reserved_by_waiter: Node = null  # Track which waiter has reserved this food for pickup
 var _cached_material: StandardMaterial3D = null  # Reuse material to prevent memory leaks
+var _progress_bar: Label3D = null  # Individual progress bar for this food
+var _last_progress_percentage: int = -1  # Track last displayed percentage to avoid unnecessary updates
 
 @onready var _visual: MeshInstance3D = $Visual
 @onready var _steam_particles: GPUParticles3D = $SteamParticles
@@ -62,9 +64,16 @@ func _ready() -> void:
 	if _steam_particles:
 		_steam_particles.emitting = false
 
+	# Setup progress bar
+	_setup_progress_bar()
+
 func _physics_process(delta: float) -> void:
 	if _cooking_state == CookingState.COOKING:
 		_update_cooking(delta)
+		_update_progress_bar()
+	elif _progress_bar and _progress_bar.visible:
+		# Hide progress bar when not cooking
+		_progress_bar.visible = false
 
 ## Public interface
 
@@ -253,3 +262,59 @@ func _update_visual() -> void:
 			_cached_material.emission = Color.GOLD * 0.4
 
 	_visual.material_override = _cached_material
+
+func _setup_progress_bar() -> void:
+	"""Create progress bar for this food item."""
+	_progress_bar = Label3D.new()
+	_progress_bar.name = "FoodProgressBar"
+	_progress_bar.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_progress_bar.font_size = 24
+	_progress_bar.outline_size = 6
+	_progress_bar.modulate = Color.WHITE
+	_progress_bar.outline_modulate = Color.BLACK
+	_progress_bar.pixel_size = 0.003
+	_progress_bar.no_depth_test = true
+	_progress_bar.render_priority = 10
+	_progress_bar.position = Vector3(0, 0.6, 0)  # Above the food
+	_progress_bar.visible = false
+	add_child(_progress_bar)
+
+func _update_progress_bar() -> void:
+	"""Update progress bar display."""
+	if not _progress_bar:
+		return
+
+	if _cooking_state != CookingState.COOKING:
+		_progress_bar.visible = false
+		_last_progress_percentage = -1
+		return
+
+	_progress_bar.visible = true
+
+	var progress := get_cooking_progress()
+	var percentage := int(progress * 100.0)
+
+	# Only update text if percentage changed (performance optimization)
+	if percentage != _last_progress_percentage:
+		_last_progress_percentage = percentage
+
+		var bar_length := 8
+		var filled := int(progress * bar_length)
+		var empty := bar_length - filled
+
+		var bar_visual := "["
+		for i in filled:
+			bar_visual += "█"
+		for i in empty:
+			bar_visual += "░"
+		bar_visual += "]"
+
+		_progress_bar.text = "%s %d%%" % [bar_visual, percentage]
+
+		# Color based on progress
+		if progress < 0.3:
+			_progress_bar.modulate = Color.YELLOW
+		elif progress < 0.7:
+			_progress_bar.modulate = Color.ORANGE
+		else:
+			_progress_bar.modulate = Color.LIME_GREEN
