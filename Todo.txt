@@ -1,0 +1,92 @@
+
+  🎯 High Priority Features
+
+  1. Player Role & Interactivity ⭐⭐⭐
+
+  Currently, waiters and chefs do everything automatically. Consider adding:
+  - Player as Helper: Let players assist by cooking food themselves or taking orders
+  - Manual cooking controls: Interact with stations to cook alongside AI chefs
+  - Order taking: Option to manually take orders from customers
+  - This would make the game feel more hands-on and engaging
+
+  2. Visual Feedback & Polish ⭐⭐⭐
+
+  - Cooking progress bars: Visual indicators on stations showing cooking progress
+  - Customer speech bubbles: Better visual indicators for what customers want (I see you have emoji labels, but
+  speech bubbles are hidden)
+  - Sound effects: Order dings, cooking sounds, customer satisfaction sounds
+  - Particle effects: Steam from cooking, satisfaction stars from happy customers
+
+  3. Tutorial System ⭐⭐
+
+  - New players won't know the controls or mechanics
+  - Add a brief tutorial level explaining:
+    - How to spawn customers (F7)
+    - How the waiter/chef system works
+    - How to use the shop (Tab)
+    - Basic controls
+
+  4. Save/Load System ⭐⭐
+
+  - Save player progress between sessions
+  - Save money, upgrades purchased, current level
+  - This adds long-term progression
+
+  🎮 Gameplay Enhancements
+
+  5. More Upgrade Variety
+
+  You have the upgrade system in EconomyManager, expand it with:
+  - Kitchen upgrades: Faster ovens, multiple cooking stations
+  - Staff upgrades: Faster waiters, more chefs
+  - Restaurant upgrades: More tables, better decor (affects customer patience)
+  - Marketing: Attract more customers per level
+
+  6. Customer Variety & Challenges
+
+  - VIP customers: Pay more but are more impatient
+  - Groups: Multiple customers at one table with different orders
+  - Special requests: Specific cooking preferences
+  - Rush hours: Sudden waves of customers
+
+  7. Fail States & Consequences
+
+  - What happens if too many customers leave angry?
+  - Reputation system consequences (I see reputation >= 50 is checked)
+  - Bankruptcy mechanics (EconomyManager has this signal but needs implementation)
+
+  🔧 Technical Improvements
+
+  8. Performance & Bug Fixes
+
+  The debug output error suggests there might be issues. Check for:
+  - Memory leaks from spawned customers/waiters/chefs
+  - Navigation errors
+  - Timer issues with cooking stations
+
+  9. UI Improvements
+
+  - Pause menu: You have ESC bound but need a full pause UI
+  - Settings menu: Volume controls, graphics options
+  - Main menu: Start screen before jumping into gameplay
+  - Order queue display: Show pending orders more clearly
+
+  10. Level Design
+
+  - Create distinct level layouts (different restaurant configurations)
+  - Progressive difficulty with unique challenges per level
+  - Boss levels or special events
+
+  🎨 Immediate Quick Wins
+
+  Based on what's already in your code:
+
+  1. Enable speech bubbles - You have them but they're hidden (CustomerAI.gd)
+  2. Add cooking progress UI - Show timers on stations
+  3. Improve order board - Make it more visible and informative
+  4. Add sound manager - Simple audio feedback for actions
+
+  ---
+  My recommendation: Start with #1 (Player Role) and #2 (Visual Feedback) as they'll make the biggest impact on
+  gameplay feel. The game has great systems, but players need more direct involvement and visual clarity to enjoy
+  it.
