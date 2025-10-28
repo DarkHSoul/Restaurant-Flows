@@ -116,6 +116,69 @@ const UPGRADES := {
 	}
 }
 
+## Placeable items for Build Mode
+const PLACEABLE_ITEMS := {
+	# Kitchen equipment
+	"oven": {
+		"name": "Oven",
+		"category": "kitchen",
+		"cost": 300.0,
+		"max_count": 5,
+		"prefab": "res://src/environment/scenes/Oven.tscn",
+		"description": "Cook pizzas (20s cooking time)",
+		"icon": "🔥"
+	},
+	"stove": {
+		"name": "Stove",
+		"category": "kitchen",
+		"cost": 250.0,
+		"max_count": 5,
+		"prefab": "res://src/environment/scenes/Stove.tscn",
+		"description": "Cook burgers, pasta, and soup",
+		"icon": "🍳"
+	},
+	"prep_counter": {
+		"name": "Prep Counter",
+		"category": "kitchen",
+		"cost": 200.0,
+		"max_count": 3,
+		"prefab": "res://src/environment/scenes/PrepCounter.tscn",
+		"description": "Prepare salads and ingredients",
+		"icon": "🔪"
+	},
+
+	# Furniture
+	"table": {
+		"name": "Table",
+		"category": "furniture",
+		"cost": 150.0,
+		"max_count": 11,
+		"prefab": "res://src/environment/scenes/Table.tscn",
+		"description": "Seat customers for dining",
+		"icon": "🪑"
+	},
+
+	# Utility
+	"trash_bin": {
+		"name": "Trash Bin",
+		"category": "utility",
+		"cost": 100.0,
+		"max_count": 5,
+		"prefab": "res://src/environment/scenes/TrashBin.tscn",
+		"description": "Dispose of burnt or wrong food",
+		"icon": "🗑️"
+	},
+	"serving_counter": {
+		"name": "Serving Counter",
+		"category": "utility",
+		"cost": 180.0,
+		"max_count": 3,
+		"prefab": "res://src/environment/scenes/ServingCounter.tscn",
+		"description": "Waiters pick up cooked food here",
+		"icon": "📦"
+	}
+}
+
 ## Owned upgrades
 var owned_upgrades: Array[String] = []
 var active_multipliers := {
@@ -332,6 +395,21 @@ func _reset_economy() -> void:
 		"spawn_rate": 1.0,
 		"utilities": 1.0
 	}
+
+func get_placeable_item(item_id: String) -> Dictionary:
+	"""Get placeable item data by ID."""
+	return PLACEABLE_ITEMS.get(item_id, {})
+
+func get_placeable_items_by_category(category: String) -> Array[Dictionary]:
+	"""Get all placeable items in a category."""
+	var items: Array[Dictionary] = []
+	for item_id in PLACEABLE_ITEMS:
+		var item_data: Dictionary = PLACEABLE_ITEMS[item_id]
+		if item_data.get("category", "") == category:
+			var item_with_id := item_data.duplicate()
+			item_with_id["id"] = item_id
+			items.append(item_with_id)
+	return items
 
 func _apply_upgrade_effects(upgrade_id: String, upgrade: Dictionary) -> void:
 	"""Apply the effects of an upgrade."""

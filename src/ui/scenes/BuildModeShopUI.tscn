@@ -1,0 +1,124 @@
+[gd_scene load_steps=4 format=3 uid="uid://cu7jm8vx2n5rp"]
+
+[ext_resource type="Script" path="res://src/ui/BuildModeShopUI.gd" id="1_buildshop"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sidebar"]
+bg_color = Color(0.05, 0.05, 0.08, 0.95)
+border_width_left = 0
+border_width_top = 0
+border_width_right = 3
+border_width_bottom = 0
+border_color = Color(0.8, 0.6, 0.3, 0.4)
+corner_radius_top_left = 0
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 0
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_money_panel"]
+bg_color = Color(0.1, 0.1, 0.12, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8, 0.6, 0.3, 0.3)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="BuildModeShopUI" type="CanvasLayer" groups=["build_mode_shop"]]
+process_mode = 3
+layer = 128
+follow_viewport_enabled = false
+script = ExtResource("1_buildshop")
+
+[node name="SidebarPanel" type="PanelContainer" parent="."]
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 350.0
+grow_vertical = 2
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_sidebar")
+
+[node name="MarginContainer" type="MarginContainer" parent="SidebarPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SidebarPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Title" type="Label" parent="SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.85, 1)
+theme_override_font_sizes/font_size = 32
+text = "🏗️ Build Mode"
+horizontal_alignment = 1
+
+[node name="MoneyPanel" type="PanelContainer" parent="SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_money_panel")
+
+[node name="MarginContainer" type="MarginContainer" parent="SidebarPanel/MarginContainer/VBoxContainer/MoneyPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 10
+
+[node name="MoneyLabel" type="RichTextLabel" parent="SidebarPanel/MarginContainer/VBoxContainer/MoneyPanel/MarginContainer"]
+layout_mode = 2
+theme_override_colors/default_color = Color(1, 0.95, 0.85, 1)
+theme_override_font_sizes/normal_font_size = 24
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+text = "[color=#CC9933]💰[/color] $0.00"
+
+[node name="CategoryTabs" type="HBoxContainer" parent="SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="ItemsScroll" type="ScrollContainer" parent="SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+mouse_filter = 1
+
+[node name="ItemsContainer" type="VBoxContainer" parent="SidebarPanel/MarginContainer/VBoxContainer/ItemsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="BottomPanel" type="PanelContainer" parent="SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_money_panel")
+
+[node name="MarginContainer" type="MarginContainer" parent="SidebarPanel/MarginContainer/VBoxContainer/BottomPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 10
+
+[node name="GridStatusLabel" type="Label" parent="SidebarPanel/MarginContainer/VBoxContainer/BottomPanel/MarginContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 1, 0.3, 1)
+theme_override_font_sizes/font_size = 18
+text = "Grid: ON (G)"
+horizontal_alignment = 1
+
+[node name="HelpLabel" type="Label" parent="SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.65, 0.55, 0.9)
+theme_override_font_sizes/font_size = 14
+text = "Q/E - Rotate
+Left Click - Place
+Right Click - Cancel
+ESC - Exit Build Mode"

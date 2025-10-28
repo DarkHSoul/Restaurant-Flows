@@ -96,8 +96,13 @@ func can_pickup() -> bool:
 	# Cannot pick up if currently cooking
 	if _cooking_state == CookingState.COOKING:
 		return false
-	# Cannot pick up if on a cooking station (should use station's interact instead)
+	# BUGFIX: Cannot pick up if on ANY station (even if cooked)
+	# Food should be picked up via station interaction, not directly
+	# This prevents race condition where player picks up food before waiter
 	if _current_station != null:
+		return false
+	# BUGFIX: Cannot pick up if reserved by a waiter
+	if is_reserved():
 		return false
 	return is_pickupable and not _is_being_held
 
@@ -118,7 +123,7 @@ func on_dropped(_dropper: Node3D) -> void:
 
 func start_cooking(station: Node3D) -> bool:
 	"""Start cooking this food item."""
-	print("[FOOD] start_cooking called. Current state: ", _cooking_state, " | requires_prep: ", requires_prep)
+	print("[FOOD] start_cooking called. Current state: ", _cooking_state, " | requires_prep: ", requires_prep, " | cooking_time: ", cooking_time)
 
 	if _cooking_state != CookingState.RAW:
 		print("[FOOD] Cannot cook - not in RAW state")
@@ -130,6 +135,15 @@ func start_cooking(station: Node3D) -> bool:
 		return false
 
 	_current_station = station
+
+	# BUGFIX: Handle instant-ready foods (salad, drinks, etc with cooking_time=0)
+	if cooking_time <= 0.0:
+		print("[FOOD] Instant-ready food! Setting to COOKED immediately")
+		_set_cooking_state(CookingState.COOKED)
+		_cooking_progress = 0.0
+		# No steam for instant foods
+		return true
+
 	_set_cooking_state(CookingState.COOKING)
 	_cooking_progress = 0.0
 
@@ -278,6 +292,28 @@ func _setup_progress_bar() -> void:
 	_progress_bar.position = Vector3(0, 0.6, 0)  # Above the food
 	_progress_bar.visible = false
 	add_child(_progress_bar)
+
+# BUGFIX: Cleanup to prevent memory leaks
+func _exit_tree() -> void:
+	"""Clean up resources when food is removed."""
+	# Clean up progress bar
+	if is_instance_valid(_progress_bar):
+		_progress_bar.queue_free()
+		_progress_bar = null
+
+	# Clean up steam particles
+	if is_instance_valid(_steam_particles):
+		_steam_particles.queue_free()
+		_steam_particles = null
+
+	# Clear material reference
+	_cached_material = null
+
+	# Clear station reference
+	_current_station = null
+
+	# Clear waiter reservation
+	_reserved_by_waiter = null
 
 func _update_progress_bar() -> void:
 	"""Update progress bar display."""

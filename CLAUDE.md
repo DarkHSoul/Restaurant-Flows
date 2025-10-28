@@ -535,3 +535,5 @@ These warnings appear in debug output but don't affect gameplay:
 ### Debug Output Spam
 - Chef AI checks for orders every frame (frequent "[DEBUG SPAWNER] Checking 0 active customers" messages)
 - This is intentional for responsive AI but can be reduced if performance becomes an issue
+- Debug the game always when you make changes . And after launching the game . If needed, wait sometime for player to test and debug later .
+- Oyunu açtığında her zaman debugla

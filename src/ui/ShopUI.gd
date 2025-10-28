@@ -41,14 +41,15 @@ func _ready() -> void:
 	hide_shop()
 
 func _input(event: InputEvent) -> void:
-	# Toggle shop with P key
-	if event.is_action_pressed("toggle_shop"):
-		if is_open:
-			hide_shop()
-		else:
-			show_shop()
-		get_viewport().set_input_as_handled()
-		return
+	# P key is now used for Build Mode, so disable toggle_shop here
+	# Shop can still be opened via Tab key or from pause menu
+	# if event.is_action_pressed("toggle_shop"):
+	# 	if is_open:
+	# 		hide_shop()
+	# 	else:
+	# 		show_shop()
+	# 	get_viewport().set_input_as_handled()
+	# 	return
 
 	if not is_open:
 		return

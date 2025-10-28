@@ -94,6 +94,11 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	"""Clean up resources when chef is removed from scene."""
+	# CRITICAL: Cancel all active timers and coroutines first
+	# This prevents hanging when window is closed
+	set_process(false)
+	set_physics_process(false)
+
 	# Disconnect signals to prevent memory leaks
 	if _agent:
 		if _agent.velocity_computed.is_connected(_on_velocity_computed):
@@ -118,9 +123,18 @@ func _exit_tree() -> void:
 		_held_food.queue_free()
 		_held_food = null
 
+	# Clean up cooking food reference
+	if _cooking_food and is_instance_valid(_cooking_food):
+		_cooking_food = null
+
+	# Clear chef assignment from customer
+	if _assigned_customer and is_instance_valid(_assigned_customer) and _assigned_customer.has_method("clear_chef_assignment"):
+		_assigned_customer.clear_chef_assignment()
+
 	# Clear references
 	_serving_counter = null
 	_current_station = null
+	_assigned_customer = null
 
 func _create_status_label() -> void:
 	"""Create a Label3D to show chef status."""
@@ -218,13 +232,16 @@ func _navigation_setup() -> void:
 	"""Called after navigation is ready."""
 	await get_tree().physics_frame
 
-	# Check if node is still valid before continuing
+	# CRITICAL: Check if node is still valid before continuing
+	# This prevents crashes when window is closed during initialization
 	if not is_inside_tree():
 		return
 
-	await get_tree().create_timer(0.5).timeout
+	# Use safe timer that can be checked
+	var timer := get_tree().create_timer(0.5)
+	await timer.timeout
 
-	# Check again after timer
+	# CRITICAL: Check again after timer to prevent crashes
 	if not is_inside_tree():
 		return
 
@@ -823,3 +840,68 @@ func _update_progress_indicator(progress: float) -> void:
 					viewport_child.set("progress", progress)
 					break
 			break
+
+## Save/Load Methods
+
+func get_save_data() -> Dictionary:
+	"""Get chef data for saving."""
+	var data := {
+		"position": global_position,
+		"rotation_y": rotation.y,
+		"state": _state,
+		"idle_position": _idle_position,
+		"storage_position": _storage_position,
+		"target_position": _target_position,
+		"has_target": _has_target,
+		"current_order": _current_order,
+		# Customer reference will be rebuilt by SaveManager
+		"assigned_customer_id": _assigned_customer._save_id if _assigned_customer and is_instance_valid(_assigned_customer) else -1,
+		# Food data (just the type, will be recreated)
+		"held_food_type": _held_food.get_food_data().get("type") if _held_food and is_instance_valid(_held_food) else "",
+		"cooking_food_type": _cooking_food.get_food_data().get("type") if _cooking_food and is_instance_valid(_cooking_food) else "",
+		# Station reference (save station position to find it again)
+		"current_station_pos": _current_station.global_position if _current_station and is_instance_valid(_current_station) else Vector3.ZERO,
+	}
+	return data
+
+func apply_save_data(data: Dictionary) -> void:
+	"""Apply loaded save data to chef."""
+	# Position and rotation
+	global_position = data.get("position", Vector3.ZERO)
+	rotation.y = data.get("rotation_y", 0.0)
+
+	# State
+	_state = data.get("state", State.IDLE)
+	_update_status_display()
+
+	# Movement data
+	_idle_position = data.get("idle_position", Vector3.ZERO)
+	_storage_position = data.get("storage_position", Vector3.ZERO)
+	_target_position = data.get("target_position", Vector3.ZERO)
+	_has_target = data.get("has_target", false)
+
+	# Order data
+	_current_order = data.get("current_order", {})
+
+	# Customer reference will be rebuilt by SaveManager after all entities are loaded
+	set_meta("_saved_customer_id", data.get("assigned_customer_id", -1))
+
+	# Food items (save manager will recreate if needed)
+	var held_food_type: String = data.get("held_food_type", "")
+	if held_food_type != "":
+		set_meta("_saved_held_food_type", held_food_type)
+
+	var cooking_food_type: String = data.get("cooking_food_type", "")
+	if cooking_food_type != "":
+		set_meta("_saved_cooking_food_type", cooking_food_type)
+
+	# Station reference (will need to find closest station)
+	var station_pos: Vector3 = data.get("current_station_pos", Vector3.ZERO)
+	if station_pos != Vector3.ZERO:
+		set_meta("_saved_station_pos", station_pos)
+
+	# Resume navigation if was moving
+	if _has_target and _agent:
+		_agent.target_position = _target_position
+
+	print("[CHEF] Restored from save - State: %s, Position: %v" % [State.keys()[_state], global_position])

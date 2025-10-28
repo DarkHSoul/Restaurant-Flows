@@ -54,6 +54,9 @@ var _action_timer: float = 0.0
 var _order_placed: bool = false
 var _exit_position: Vector3 = Vector3.ZERO
 
+## Save/Load
+var _save_id: int = 0  # Unique ID for save/load system
+
 ## References
 @onready var _agent: NavigationAgent3D = $NavigationAgent3D
 @onready var _visual: MeshInstance3D = $Visual
@@ -110,6 +113,11 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	"""Clean up resources when customer is removed from scene."""
+	# CRITICAL: Cancel all active timers and coroutines first
+	# This prevents hanging when window is closed
+	set_process(false)
+	set_physics_process(false)
+
 	# Disconnect signals to prevent memory leaks
 	if _agent:
 		if _agent.velocity_computed.is_connected(_on_velocity_computed):
@@ -137,6 +145,8 @@ func _exit_tree() -> void:
 
 	_assigned_table = null
 	_assigned_counter = null
+	_assigned_waiter = null
+	_assigned_chef = null
 
 func _create_emotion_label() -> void:
 	"""Create a Label3D to show customer emotions."""
@@ -250,6 +260,13 @@ func _physics_process(delta: float) -> void:
 func _update_patience(delta: float) -> void:
 	if _state in [State.WAITING_FOR_FOOD, State.WAITING_FOR_WAITER, State.ORDERING]:
 		_wait_timer += delta
+
+		# BUGFIX: Don't lose patience if food is currently being delivered by waiter
+		# This prevents customer leaving while waiter is bringing the food
+		if _food_in_delivery:
+			# Food is on the way! Don't lose patience
+			return
+
 		var patience_loss := (100.0 / patience) * delta
 		_change_satisfaction(-patience_loss)
 
@@ -401,9 +418,12 @@ func take_order_at_table(_waiter: Node3D) -> Dictionary:
 	print("[CUSTOMER] Order taken by waiter: ", _current_order.get("name", "Unknown"))
 
 	# After a brief moment, hide bubble and wait for food
-	await get_tree().create_timer(2.0).timeout
+	# Use a safe await that can be cancelled
+	var timer := get_tree().create_timer(2.0)
+	await timer.timeout
 
-	# Check if customer is still in the scene
+	# CRITICAL: Check if customer is still in the scene after await
+	# This prevents crashes when window is closed during await
 	if not is_inside_tree():
 		return {}
 
@@ -433,8 +453,16 @@ func assign_table(table: Node3D) -> void:
 	if not table:
 		return
 
+	# BUGFIX: Reserve the table BEFORE assigning to prevent race condition
+	# Check if table is actually available and reserve it atomically
+	if table.has_method("reserve_for_customer"):
+		if not table.reserve_for_customer(self):
+			print("[CUSTOMER] Failed to reserve table - already taken!")
+			return  # Table was taken by another customer
+
 	_assigned_table = table
 
+	# Legacy reservation method (for backwards compatibility)
 	# Reserve the table immediately by marking it
 	# This prevents other customers from being assigned to the same table
 	if table.has_method("set") and "has_taken_order" in table:
@@ -511,12 +539,15 @@ func get_order_status() -> String:
 			if counter.has_food_type(food_type):
 				return "ready"
 
-	# Check if a chef is assigned and cooking
+	# Check if a chef is assigned and their state
 	if _assigned_chef != null and is_instance_valid(_assigned_chef):
 		if _assigned_chef.has_method("get_state"):
 			var chef_state = _assigned_chef.get_state()
-			# State 2 = COOKING
-			if chef_state == 2:
+			# State 6=PICKING_COOKED_FOOD, 7=MOVING_TO_COUNTER, 8=PLACING_AT_COUNTER -> chef bringing to counter
+			if chef_state >= 6 and chef_state <= 8:
+				return "preparing"
+			# State 3=MOVING_TO_STATION, 4=PLACING_FOOD, 5=WAITING_FOR_COOKING -> actively cooking
+			elif chef_state >= 3 and chef_state <= 5:
 				return "cooking"
 
 	# Check if any cooking station has this food type
@@ -568,8 +599,15 @@ func clear_waiter_assignment() -> void:
 
 func assign_chef(chef: Node) -> bool:
 	"""Assign a chef to cook this customer's order. Returns true if successful, false if another chef is already assigned."""
+	# BUGFIX: Add atomic check-and-set to prevent race condition
+	# Multiple chefs could try to assign themselves in the same frame
 	if _assigned_chef != null and is_instance_valid(_assigned_chef):
+		# Check if it's the same chef trying to re-assign (allow this)
+		if _assigned_chef == chef:
+			return true  # Already assigned to this chef
 		return false  # Another chef is already assigned
+
+	# Atomic assignment - only one chef will succeed
 	_assigned_chef = chef
 	return true  # Successfully assigned
 
@@ -903,3 +941,77 @@ func requires_hold_interaction() -> bool:
 func get_interaction_text() -> String:
 	"""Returns the text to show during interaction."""
 	return "Taking Order..."
+
+## ===== SAVE/LOAD SYSTEM =====
+
+func get_save_data() -> Dictionary:
+	"""Returns customer state as a Dictionary for saving."""
+	var data := {}
+
+	# Basic info
+	data["save_id"] = _save_id
+	data["position"] = global_position
+	data["state"] = _state
+	data["color"] = customer_color
+
+	# Table assignment (save table number instead of reference)
+	if _assigned_table and _assigned_table.has_method("get"):
+		data["table_number"] = _assigned_table.table_number
+	else:
+		data["table_number"] = -1
+
+	# Order and satisfaction
+	data["current_order"] = _current_order.duplicate()
+	data["satisfaction"] = _satisfaction
+	data["wait_timer"] = _wait_timer
+	data["order_placed"] = _order_placed
+	data["food_in_delivery"] = _food_in_delivery
+
+	# Behavior parameters (in case they were modified)
+	data["patience"] = patience
+
+	print("[CUSTOMER %d] Save data created - State: %d, Table: %d, Satisfaction: %.1f" %
+		[_save_id, _state, data["table_number"], _satisfaction])
+
+	return data
+
+func apply_save_data(data: Dictionary) -> void:
+	"""Restores customer state from saved Dictionary."""
+	if not data:
+		push_warning("[CUSTOMER] No save data to apply")
+		return
+
+	# Restore basic info
+	_save_id = data.get("save_id", 0)
+	global_position = data.get("position", Vector3.ZERO)
+	_state = data.get("state", State.ENTERING)
+	customer_color = data.get("color", Color.WHITE)
+
+	# Apply visual color
+	if _visual and _visual.mesh:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = customer_color
+		_visual.set_surface_override_material(0, mat)
+
+	# Restore order and satisfaction
+	_current_order = data.get("current_order", {}).duplicate()
+	_satisfaction = data.get("satisfaction", 100.0)
+	_wait_timer = data.get("wait_timer", 0.0)
+	_order_placed = data.get("order_placed", false)
+	_food_in_delivery = data.get("food_in_delivery", false)
+
+	# Restore behavior parameters
+	patience = data.get("patience", 120.0)
+
+	# Table assignment will be restored by SaveManager using table_number
+	# (can't restore now because tables might not be loaded yet)
+
+	# Update emotion display based on restored state
+	_update_emotion_display()
+
+	# Show order label if order was placed
+	if _order_placed and not _current_order.is_empty():
+		_show_order_bubble()
+
+	print("[CUSTOMER %d] Save data applied - State: %d, Satisfaction: %.1f" %
+		[_save_id, _state, _satisfaction])

@@ -1,0 +1,45 @@
+[gd_scene load_steps=2 format=3 uid="uid://c7y8rar0s1t2u"]
+
+[ext_resource type="Script" path="res://src/ui/BuildModeUpgradesUI.gd" id="1_upgrades"]
+
+[node name="BuildModeUpgradesUI" type="CanvasLayer" groups=["build_mode_upgrades"]]
+process_mode = 3
+script = ExtResource("1_upgrades")
+
+[node name="SidebarPanel" type="PanelContainer" parent="."]
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -350.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="SidebarPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SidebarPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="TitleLabel" type="Label" parent="SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "⚙️ Upgrades"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.8, 0.6, 0.3, 1)
+theme_override_font_sizes/font_size = 28
+
+[node name="UpgradesScroll" type="ScrollContainer" parent="SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+follow_focus = true
+horizontal_scroll_mode = 0
+
+[node name="UpgradesContainer" type="VBoxContainer" parent="SidebarPanel/MarginContainer/VBoxContainer/UpgradesScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10

@@ -401,6 +401,32 @@ func _setup_cooking_sound() -> void:
 	if _cooking_sound_player.stream and _cooking_sound_player.stream is AudioStreamWAV:
 		(_cooking_sound_player.stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
 
+# BUGFIX: Cleanup to prevent memory leaks
+func _exit_tree() -> void:
+	"""Clean up resources when station is removed."""
+	# Clean up cooking sound player
+	if is_instance_valid(_cooking_sound_player):
+		if _cooking_sound_player.playing:
+			_cooking_sound_player.stop()
+		_cooking_sound_player.queue_free()
+		_cooking_sound_player = null
+
+	# Clean up steam particles
+	if is_instance_valid(_steam_particles):
+		_steam_particles.queue_free()
+		_steam_particles = null
+
+	# Clean up interaction area
+	if is_instance_valid(_interaction_area):
+		_interaction_area.queue_free()
+		_interaction_area = null
+
+	# Clear material reference
+	_cached_material = null
+
+	# Clear all food references (they'll be cleaned up by their own _exit_tree)
+	_placed_foods.clear()
+
 func _setup_steam_particles() -> void:
 	"""Create and setup steam particle effect for cooking."""
 	_steam_particles = GPUParticles3D.new()

@@ -85,6 +85,9 @@ func _ready() -> void:
 	# Create progress indicator
 	_create_progress_indicator()
 
+	# Add to waiters group for save system
+	add_to_group("waiters")
+
 	# Note: Idle position will be set by WaiterSpawner.set_idle_position()
 	# after the waiter is positioned in the scene
 
@@ -95,6 +98,11 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	"""Clean up resources when waiter is removed from scene."""
+	# CRITICAL: Cancel all active timers and coroutines first
+	# This prevents hanging when window is closed
+	set_process(false)
+	set_physics_process(false)
+
 	# Disconnect signals to prevent memory leaks
 	if _agent:
 		if _agent.velocity_computed.is_connected(_on_velocity_computed):
@@ -119,9 +127,14 @@ func _exit_tree() -> void:
 		_held_food.queue_free()
 		_held_food = null
 
+	# Unreserve any reserved food
+	if _reserved_food and is_instance_valid(_reserved_food) and _reserved_food.has_method("unreserve"):
+		_reserved_food.unreserve()
+
 	# Clear references
 	_assigned_customer = null
 	_counter_reference = null
+	_reserved_food = null
 
 func _create_status_label() -> void:
 	"""Create a Label3D to show waiter status."""
@@ -246,7 +259,8 @@ func _navigation_setup() -> void:
 	"""Called after navigation is ready."""
 	await get_tree().physics_frame
 
-	# Check if node is still valid before continuing
+	# CRITICAL: Check if node is still valid before continuing
+	# This prevents crashes when window is closed during initialization
 	if not is_inside_tree():
 		return
 
@@ -255,7 +269,8 @@ func _navigation_setup() -> void:
 	var wait_frames := 30  # ~0.5 seconds at 60 FPS
 	for i in wait_frames:
 		await get_tree().process_frame
-		# Check if we're still in the tree after each frame
+		# CRITICAL: Check if we're still in the tree after each frame
+		# This prevents infinite loops when window is closed
 		if not is_inside_tree():
 			return
 
@@ -698,20 +713,37 @@ func _update_movement(delta: float) -> void:
 		_finish_movement()
 		return
 
-	# Check if path is valid - but give navigation system time to compute
-	# Don't check reachability immediately, give it a few frames
+	# BUGFIX: Prevent infinite loop on unreachable targets
+	# Track how long we've been trying to reach this target
 	if not _agent.is_target_reachable():
-		# Only fail after we've been trying for a while
-		# This prevents premature failures while navigation is computing
+		# Give navigation system time to compute (wait a bit before giving up)
+		# Check every 2 seconds and attempt recovery
 		if Engine.get_physics_frames() % 120 == 0:  # Check every 2 seconds
-			print("[WAITER MOVEMENT] Target still unreachable after waiting! Target: %v | Current: %v" % [_target_position, global_position])
-			print("[WAITER MOVEMENT] Attempting to re-open doors and recalculate path...")
+			# Count how many times we've tried
+			if not has_meta("_unreachable_attempts"):
+				set_meta("_unreachable_attempts", 0)
+
+			var attempts: int = get_meta("_unreachable_attempts") + 1
+			set_meta("_unreachable_attempts", attempts)
+
+			print("[WAITER MOVEMENT] Target unreachable (attempt %d/5)! Target: %v | Current: %v" % [attempts, _target_position, global_position])
+
+			# Try to recover: open doors and recalculate
 			_open_doors_to_target(_target_position)
-			# Try to reset the target to force recalculation
 			if _agent:
 				_agent.target_position = _target_position
-		# Don't give up immediately, keep trying
-		# return
+
+			# Give up after 5 attempts (10 seconds total)
+			if attempts >= 5:
+				print("[WAITER MOVEMENT] Target unreachable after 5 attempts! Giving up and going IDLE")
+				remove_meta("_unreachable_attempts")
+				_has_target = false
+				_set_state(State.IDLE)
+				return
+	else:
+		# Target is reachable, reset attempt counter
+		if has_meta("_unreachable_attempts"):
+			remove_meta("_unreachable_attempts")
 
 	var next_position := _agent.get_next_path_position()
 	var direction := (next_position - global_position).normalized()
@@ -1102,3 +1134,60 @@ func _count_nearby_waiters(check_position: Vector3, radius: float) -> int:
 			count += 1
 
 	return count
+
+## Save/Load Methods
+
+func get_save_data() -> Dictionary:
+	"""Get waiter data for saving."""
+	var data := {
+		"position": global_position,
+		"rotation_y": rotation.y,
+		"state": _state,
+		"idle_position": _idle_position,
+		"target_position": _target_position,
+		"has_target": _has_target,
+		"current_order": _current_order,
+		# Customer reference will be rebuilt by SaveManager
+		"assigned_customer_id": _assigned_customer._save_id if _assigned_customer and is_instance_valid(_assigned_customer) else -1,
+		# Food data (just the type, will be recreated)
+		"held_food_type": _held_food.get_food_data().get("type") if _held_food and is_instance_valid(_held_food) else "",
+		"reserved_food_type": _reserved_food.get_food_data().get("type") if _reserved_food and is_instance_valid(_reserved_food) else "",
+	}
+	return data
+
+func apply_save_data(data: Dictionary) -> void:
+	"""Apply loaded save data to waiter."""
+	# Position and rotation
+	global_position = data.get("position", Vector3.ZERO)
+	rotation.y = data.get("rotation_y", 0.0)
+
+	# State
+	_state = data.get("state", State.IDLE)
+	_update_status_display()
+
+	# Movement data
+	_idle_position = data.get("idle_position", Vector3.ZERO)
+	_target_position = data.get("target_position", Vector3.ZERO)
+	_has_target = data.get("has_target", false)
+
+	# Order data
+	_current_order = data.get("current_order", {})
+
+	# Customer reference will be rebuilt by SaveManager after all entities are loaded
+	# Store the customer ID for later reference rebuilding
+	set_meta("_saved_customer_id", data.get("assigned_customer_id", -1))
+
+	# Food items need to be recreated (save manager will handle this)
+	var held_food_type: String = data.get("held_food_type", "")
+	if held_food_type != "":
+		set_meta("_saved_held_food_type", held_food_type)
+
+	var reserved_food_type: String = data.get("reserved_food_type", "")
+	if reserved_food_type != "":
+		set_meta("_saved_reserved_food_type", reserved_food_type)
+
+	# Resume navigation if was moving
+	if _has_target and _agent:
+		_agent.target_position = _target_position
+
+	print("[WAITER] Restored from save - State: %s, Position: %v" % [State.keys()[_state], global_position])

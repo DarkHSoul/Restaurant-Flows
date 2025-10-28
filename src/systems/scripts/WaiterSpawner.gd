@@ -27,9 +27,13 @@ func _ready() -> void:
 		else:
 			print("[WAITER_SPAWNER] ERROR: Could not load default waiter scene!")
 
-	# Auto spawn initial waiters
+	# Auto spawn initial waiters (but not when loading a save)
 	if auto_spawn_initial_waiters:
-		call_deferred("_spawn_initial_waiters")
+		# Check if SaveManager is loading
+		if SaveManager.instance and SaveManager.instance.is_loading_save:
+			print("[WAITER_SPAWNER] Skipping auto-spawn (SaveManager is loading)")
+		else:
+			call_deferred("_spawn_initial_waiters")
 
 func _spawn_initial_waiters() -> void:
 	"""Spawn initial waiters on game start."""

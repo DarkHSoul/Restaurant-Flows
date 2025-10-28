@@ -32,6 +32,7 @@ var current_interactable: Node3D = null
 var camera_rotation: Vector2 = Vector2.ZERO
 var interaction_prompt: Label3D = null
 var _last_debug_object: Node3D = null  # Track last debug printed object to avoid spam
+var controls_enabled: bool = true  # For disabling during build mode
 
 ## Hold-to-interact state
 var is_holding_interact: bool = false
@@ -41,8 +42,13 @@ func _ready() -> void:
 	# Add to player group for easy finding
 	add_to_group("player")
 
-	# Capture mouse
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# Don't capture mouse initially - wait for game to start
+	# (MainMenu will show first)
+
+	# Connect to game_started signal
+	await get_tree().process_frame
+	if GameManager.instance:
+		GameManager.instance.game_started.connect(_on_game_started)
 
 	# Setup interaction raycast
 	if interaction_raycast:
@@ -80,6 +86,10 @@ func _create_interaction_prompt() -> void:
 	add_child(interaction_prompt)
 
 func _input(event: InputEvent) -> void:
+	# Disable all input if controls are disabled (build mode, etc.)
+	if not controls_enabled:
+		return
+
 	# Mouse look
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		camera_rotation.x -= event.relative.y * mouse_sensitivity
@@ -103,11 +113,23 @@ func _input(event: InputEvent) -> void:
 			_try_pickup()
 
 func _physics_process(delta: float) -> void:
+	# Disable physics processing if controls are disabled
+	if not controls_enabled:
+		return
+
+	# Only update camera and movement when game is playing
+	var game_manager = GameManager.instance
+	var is_playing = game_manager and game_manager.current_state == GameManager.GameState.PLAYING
+
+	# Always allow camera rotation and movement - let input determine when to respond
 	_update_camera_rotation()
 	_handle_movement(delta)
-	_update_interaction_highlight()
-	_update_held_item_position()
-	_handle_hold_to_interact()
+
+	# Only do interactions when playing
+	if is_playing:
+		_update_interaction_highlight()
+		_update_held_item_position()
+		_handle_hold_to_interact()
 
 func _update_camera_rotation() -> void:
 	if camera_pivot:
@@ -393,6 +415,19 @@ func _handle_hold_to_interact() -> void:
 		if interaction_progress_bar:
 			interaction_progress_bar.set_holding(false)
 
+func _on_game_started() -> void:
+	"""Called when the game starts - capture mouse for first-person control."""
+	print("[PLAYER] Game started - capturing mouse")
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+	# Reset player velocity to prevent jumping on game start
+	velocity = Vector3.ZERO
+
+	# Ensure player is on the ground
+	if not is_on_floor():
+		# Apply a small downward force to snap to ground
+		velocity.y = -1.0
+
 func _on_interaction_completed(target: Node3D) -> void:
 	"""Called when hold-to-interact completes."""
 	print("[DEBUG] Interaction completed with: ", target.name if target else "null")
@@ -401,3 +436,102 @@ func _on_interaction_completed(target: Node3D) -> void:
 	if target and target.has_method("interact"):
 		target.interact(self)
 		interacted_with.emit(target)
+
+func set_controls_enabled(enabled: bool) -> void:
+	"""Enable or disable player controls (for build mode, menus, etc.)."""
+	controls_enabled = enabled
+	print("[PLAYER] Controls %s" % ("enabled" if enabled else "disabled"))
+
+## ===== SAVE/LOAD SYSTEM =====
+
+func get_save_data() -> Dictionary:
+	"""Returns player state as a Dictionary for saving."""
+	var data := {}
+
+	# Position and rotation
+	data["position"] = global_position
+	data["rotation_y"] = rotation.y
+	data["camera_rotation"] = camera_rotation
+
+	# Held item data
+	if held_item:
+		# Check if held item is a FoodItem
+		if held_item is FoodItem:
+			var food: FoodItem = held_item as FoodItem
+			data["held_food"] = {
+				"type": food.food_type,
+				"state": food._cooking_state if food.has_method("get") else 0,
+				"cooking_progress": food._cooking_progress if food.has_method("get") else 0.0
+			}
+		else:
+			data["held_food"] = null
+	else:
+		data["held_food"] = null
+
+	print("[PLAYER] Save data created - Position: %v, Held: %s" % [global_position, "yes" if held_item else "no"])
+	return data
+
+func apply_save_data(data: Dictionary) -> void:
+	"""Restores player state from saved Dictionary."""
+	if not data:
+		push_warning("[PLAYER] No save data to apply")
+		return
+
+	# Restore position and rotation
+	global_position = data.get("position", Vector3.ZERO)
+	rotation.y = data.get("rotation_y", 0.0)
+	camera_rotation = data.get("camera_rotation", Vector2.ZERO)
+
+	# Apply camera rotation
+	if camera_pivot:
+		camera_pivot.rotation.x = camera_rotation.y
+	rotation.y = camera_rotation.x
+
+	# Restore held item (if any)
+	var held_food_data = data.get("held_food", null)
+	if held_food_data:
+		# Need to wait a frame for the scene to be fully ready
+		await get_tree().process_frame
+		_restore_held_food(held_food_data)
+
+	print("[PLAYER] Save data applied - Position: %v" % global_position)
+
+func _restore_held_food(food_data: Dictionary) -> void:
+	"""Helper to restore held food item."""
+	# Get food type
+	var food_type: int = food_data.get("type", 0)  # Default to PIZZA (0)
+
+	# Load the appropriate scene based on food type
+	var food_scene: PackedScene
+	match food_type:
+		0:  # PIZZA
+			food_scene = preload("res://src/systems/scenes/FoodPizza.tscn")
+		1:  # BURGER
+			food_scene = preload("res://src/systems/scenes/FoodBurger.tscn")
+		2:  # PASTA
+			food_scene = preload("res://src/systems/scenes/FoodPasta.tscn")
+		3:  # SALAD
+			food_scene = preload("res://src/systems/scenes/FoodSalad.tscn")
+		4:  # SOUP
+			food_scene = preload("res://src/systems/scenes/FoodSoup.tscn")
+		_:
+			food_scene = preload("res://src/systems/scenes/FoodPizza.tscn")
+
+	var food := food_scene.instantiate() as FoodItem
+	if not food:
+		push_error("[PLAYER] Failed to create FoodItem for restore")
+		return
+
+	# Add to scene first
+	get_tree().root.add_child(food)
+
+	# Then set state (needs to be in scene tree)
+	if food_data.has("state"):
+		food._cooking_state = food_data.get("state", 0)
+	if food_data.has("cooking_progress"):
+		food._cooking_progress = food_data.get("cooking_progress", 0.0)
+
+	# Pick up the food
+	_pickup_item(food)
+
+	print("[PLAYER] Restored held food: type=%d, state=%d" % [food.food_type, food._cooking_state])

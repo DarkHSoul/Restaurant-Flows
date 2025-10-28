@@ -32,9 +32,13 @@ func _ready() -> void:
 
 	print("[CHEF_SPAWNER] Auto spawn: ", auto_spawn_initial_chefs, " | Initial count: ", initial_chef_count)
 
-	# Auto spawn initial chefs
+	# Auto spawn initial chefs (but not when loading a save)
 	if auto_spawn_initial_chefs:
-		call_deferred("_spawn_initial_chefs")
+		# Check if SaveManager is loading
+		if SaveManager.instance and SaveManager.instance.is_loading_save:
+			print("[CHEF_SPAWNER] Skipping auto-spawn (SaveManager is loading)")
+		else:
+			call_deferred("_spawn_initial_chefs")
 
 func _spawn_initial_chefs() -> void:
 	"""Spawn initial chefs on game start."""

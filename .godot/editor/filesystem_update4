@@ -1,4 +1,0 @@
-res://src/characters/scripts/chef/ChefAI.gd
-res://src/environment/scripts/CookingStation.gd
-res://src/systems/scripts/CustomerSpawner.gd
-res://src/systems/scripts/FoodItem.gd

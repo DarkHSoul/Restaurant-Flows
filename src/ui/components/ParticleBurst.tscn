@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="Curve" id="Curve_scale"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_color"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(1, 0.8, 0.4, 1, 0.8, 0.6, 0.3, 1, 0.8, 0.6, 0.3, 0)
+
+[node name="ParticleBurst" type="GPUParticles2D"]
+emitting = false
+amount = 12
+process_material = null
+lifetime = 0.6
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+fixed_fps = 60
+local_coords = false

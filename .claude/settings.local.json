@@ -6,7 +6,8 @@
       "Bash(find:*)",
       "Bash(copy:*)",
       "Bash(timeout /t 3)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(mcp__godot__launch_editor)"
     ],
     "deny": [],
     "ask": []

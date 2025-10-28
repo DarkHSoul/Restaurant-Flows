@@ -26,6 +26,7 @@ var _current_order: Dictionary = {}
 var _placed_foods: Array[FoodItem] = []
 var _is_highlighted: bool = false
 var _error_label: Label3D = null
+var _reserved_by_customer: Customer = null  # BUGFIX: Track table reservation to prevent race conditions
 
 @onready var _visual: MeshInstance3D = $Visual
 @onready var _customer_seat_position: Marker3D = $CustomerSeatPosition
@@ -45,6 +46,9 @@ func _ready() -> void:
 
 	# Create error message label
 	_create_error_label()
+
+	# Add to tables group for save system
+	add_to_group("tables")
 
 	_update_visual()
 
@@ -106,6 +110,10 @@ func sit_customer(customer: Customer) -> bool:
 	print("[DEBUG TABLE] Table ", table_number, " seating customer successfully. Seated count: ", _seated_customers.size(), "/", max_customers)
 	_seated_customers.append(customer)
 
+	# BUGFIX: Clear reservation when customer sits down
+	if _reserved_by_customer == customer:
+		_reserved_by_customer = null
+
 	# Position customer at seat
 	if _customer_seat_position:
 		customer.global_position = _customer_seat_position.global_position
@@ -124,6 +132,10 @@ func release_table() -> void:
 
 	var customer: Customer = _seated_customers.pop_back()
 	customer_left.emit(self, customer)
+
+	# BUGFIX: Clear reservation when customer leaves
+	if _reserved_by_customer == customer or _reserved_by_customer == null:
+		_reserved_by_customer = null
 
 	# Clean up any food left on table
 	for food in _placed_foods:
@@ -229,8 +241,29 @@ func get_current_order() -> Dictionary:
 	"""Get the current order."""
 	return _current_order.duplicate()
 
+func reserve_for_customer(customer: Customer) -> bool:
+	"""BUGFIX: Atomically reserve table for a customer. Returns true if successful, false if already reserved."""
+	# Check if already reserved
+	if _reserved_by_customer != null and is_instance_valid(_reserved_by_customer):
+		# Allow same customer to re-reserve
+		if _reserved_by_customer == customer:
+			return true
+		return false  # Already reserved by another customer
+
+	# Check if table is actually available
+	if _seated_customers.size() >= max_customers:
+		return false
+
+	# Atomically reserve the table
+	_reserved_by_customer = customer
+	return true
+
 func is_available() -> bool:
 	"""Check if table has space for customers and isn't already assigned."""
+	# BUGFIX: Check reservation status first
+	if _reserved_by_customer != null and is_instance_valid(_reserved_by_customer):
+		return false  # Reserved by another customer
+
 	# Table is unavailable if it's full OR if someone is walking to it (has_taken_order = true)
 	if _seated_customers.size() >= max_customers:
 		return false
@@ -303,3 +336,51 @@ func _update_visual() -> void:
 		material.albedo_color = available_color.lerp(Color.WHITE, 0.7)
 
 	_visual.material_override = material
+
+## ===== SAVE/LOAD SYSTEM =====
+
+func get_save_data() -> Dictionary:
+	"""Returns table state as a Dictionary for saving."""
+	var data := {}
+
+	data["table_number"] = table_number
+	data["has_taken_order"] = has_taken_order
+	data["current_order"] = _current_order.duplicate()
+
+	# Save customer IDs (references will be rebuilt during load)
+	var customer_ids: Array[int] = []
+	for customer in _seated_customers:
+		if customer and customer.has_method("get"):
+			customer_ids.append(customer._save_id)
+	data["seated_customer_ids"] = customer_ids
+
+	# Save reserved customer ID
+	if _reserved_by_customer:
+		data["reserved_by_customer_id"] = _reserved_by_customer._save_id
+	else:
+		data["reserved_by_customer_id"] = -1
+
+	print("[TABLE %d] Save data created - Customers: %d, Order taken: %s" %
+		[table_number, customer_ids.size(), has_taken_order])
+
+	return data
+
+func apply_save_data(data: Dictionary) -> void:
+	"""Restores table state from saved Dictionary."""
+	if not data:
+		push_warning("[TABLE] No save data to apply")
+		return
+
+	has_taken_order = data.get("has_taken_order", false)
+	_current_order = data.get("current_order", {}).duplicate()
+
+	# Clear seated customers list - will be rebuilt by SaveManager
+	_seated_customers.clear()
+
+	# Customer references will be rebuilt by SaveManager
+	# (can't restore now because customers might not be loaded yet)
+
+	_update_visual()
+
+	print("[TABLE %d] Save data applied - Order taken: %s" %
+		[table_number, has_taken_order])

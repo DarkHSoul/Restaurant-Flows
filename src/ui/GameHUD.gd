@@ -3,15 +3,19 @@ class_name GameHUD
 
 ## In-game HUD showing money, time, orders, etc.
 
-@onready var money_label: RichTextLabel = $MarginContainer/VBoxContainer/TopBar/MoneyLabel
-@onready var time_label: Label = $MarginContainer/VBoxContainer/TopBar/TimeLabel
-@onready var reputation_bar: ProgressBar = $MarginContainer/VBoxContainer/TopBar/ReputationBar
+@onready var money_label: RichTextLabel = $MarginContainer/VBoxContainer/TopBarPanel/MarginContainer/TopBar/MoneyLabel
+@onready var level_label: Label = $MarginContainer/VBoxContainer/TopBarPanel/MarginContainer/TopBar/LevelTimeContainer/LevelLabel
+@onready var time_label: Label = $MarginContainer/VBoxContainer/TopBarPanel/MarginContainer/TopBar/LevelTimeContainer/TimeLabel
+@onready var reputation_bar: ProgressBar = $MarginContainer/VBoxContainer/TopBarPanel/MarginContainer/TopBar/ReputationContainer/ReputationBar
+@onready var waiters_label: Label = $MarginContainer/VBoxContainer/TopBarPanel/MarginContainer/TopBar/StaffPanel/MarginContainer/VBoxContainer/WaitersLabel
+@onready var chefs_label: Label = $MarginContainer/VBoxContainer/TopBarPanel/MarginContainer/TopBar/StaffPanel/MarginContainer/VBoxContainer/ChefsLabel
 @onready var orders_panel: PanelContainer = $MarginContainer/VBoxContainer/OrdersPanel
-@onready var orders_panel_content: VBoxContainer = $MarginContainer/VBoxContainer/OrdersPanel/VBoxContainer
-@onready var orders_container: VBoxContainer = $MarginContainer/VBoxContainer/OrdersPanel/VBoxContainer/ScrollContainer/OrdersList
-@onready var orders_label: Label = $MarginContainer/VBoxContainer/OrdersPanel/VBoxContainer/HeaderBar/Label
-@onready var toggle_button: Button = $MarginContainer/VBoxContainer/OrdersPanel/VBoxContainer/HeaderBar/ToggleButton
-@onready var held_item_label: RichTextLabel = $MarginContainer/VBoxContainer/BottomBar/HeldItemLabel
+@onready var orders_panel_content: VBoxContainer = $MarginContainer/VBoxContainer/OrdersPanel/MarginContainer/VBoxContainer
+@onready var orders_container: VBoxContainer = $MarginContainer/VBoxContainer/OrdersPanel/MarginContainer/VBoxContainer/ScrollContainer/OrdersList
+@onready var orders_label: Label = $MarginContainer/VBoxContainer/OrdersPanel/MarginContainer/VBoxContainer/OrdersLabel
+# Toggle button removed - use Tab key instead
+# @onready var toggle_button: Button = $MarginContainer/VBoxContainer/OrdersPanel/MarginContainer/VBoxContainer/HeaderBar/ToggleButton
+@onready var held_item_label: RichTextLabel = $MarginContainer/VBoxContainer/BottomBarPanel/MarginContainer/BottomBar/HeldItemLabel
 
 var orders_visible: bool = false
 
@@ -31,9 +35,9 @@ func _ready() -> void:
 	await get_tree().process_frame
 	player = get_tree().get_first_node_in_group("player")
 
-	# Connect toggle button
-	if toggle_button:
-		toggle_button.pressed.connect(_on_toggle_button_pressed)
+	# Toggle button removed - controlled via Tab key only
+	# if toggle_button:
+	# 	toggle_button.pressed.connect(_on_toggle_button_pressed)
 
 	# Start with orders panel hidden
 	_set_orders_visibility(false)
@@ -54,26 +58,41 @@ func _update_hud() -> void:
 		if money_label:
 			var money: float = stats.get("money", 0.0)
 			var profit_today: float = stats.get("profit_today", 0.0)
-			var profit_color: String = ""
+			var profit_text: String = ""
 
 			if profit_today > 0:
-				profit_color = "[color=green]"
+				profit_text = " [color=#66CC66](+$%.2f)[/color]" % profit_today
 			elif profit_today < 0:
-				profit_color = "[color=red]"
+				profit_text = " [color=#CC6666](-$%.2f)[/color]" % abs(profit_today)
 
-			# Display current money and today's profit
-			money_label.text = "$%.2f %s(+$%.2f)[/color]" % [money, profit_color, abs(profit_today)]
+			# Display current money with gold coin emoji and color
+			money_label.text = "[color=#CC9933]💰[/color] $%.2f%s" % [money, profit_text]
 
 		# Reputation
 		if reputation_bar:
 			reputation_bar.value = stats.get("reputation", 100.0)
 
-	# Time
-	if game_manager and time_label:
-		var remaining := game_manager.get_remaining_time()
-		var minutes: int = int(remaining) / 60
-		var seconds := int(remaining) % 60
-		time_label.text = "%02d:%02d" % [minutes, seconds]
+	# Level and Time
+	if game_manager:
+		if level_label:
+			level_label.text = "Level %d" % game_manager.current_level
+
+		if time_label:
+			var remaining := game_manager.get_remaining_time()
+			var minutes: int = int(remaining) / 60
+			var seconds := int(remaining) % 60
+
+			# Color code based on remaining time
+			var time_color: String = "#CC9933"  # Gold default
+			if remaining < 60:
+				time_color = "#CC6666"  # Red when < 1 min
+			elif remaining < 120:
+				time_color = "#CCAA66"  # Orange when < 2 min
+
+			time_label.text = "[color=%s]⏱️ %02d:%02d[/color]" % [time_color, minutes, seconds]
+
+	# Staff counts
+	_update_staff_counts()
 
 	# Held item
 	if player and held_item_label:
@@ -86,6 +105,16 @@ func _update_hud() -> void:
 
 	# Update order statuses
 	_update_all_order_statuses()
+
+func _update_staff_counts() -> void:
+	"""Update the staff panel with current waiter and chef counts."""
+	if waiters_label:
+		var waiters := get_tree().get_nodes_in_group("waiters")
+		waiters_label.text = "👔 Waiters: %d" % waiters.size()
+
+	if chefs_label:
+		var chefs := get_tree().get_nodes_in_group("chefs")
+		chefs_label.text = "👨‍🍳 Chefs: %d" % chefs.size()
 
 func _update_all_order_statuses() -> void:
 	"""Update status of all displayed orders."""
@@ -176,7 +205,7 @@ func remove_order_display(order: Dictionary) -> void:
 
 func update_order_status(order: Dictionary, status: String) -> void:
 	"""Update the status of an order display.
-	Status can be: 'pending', 'cooking', 'ready', 'delivering'
+	Status can be: 'pending', 'cooking', 'preparing', 'ready', 'delivering'
 	"""
 	if not orders_container:
 		return
@@ -204,6 +233,9 @@ func update_order_status(order: Dictionary, status: String) -> void:
 		"cooking":
 			status_label.text = "🍳 Cooking"
 			status_label.add_theme_color_override("font_color", Color(1, 0.6, 0.2))
+		"preparing":
+			status_label.text = "📦 Preparing"
+			status_label.add_theme_color_override("font_color", Color(1, 0.9, 0.4))
 		"ready":
 			status_label.text = "✅ Ready"
 			status_label.add_theme_color_override("font_color", Color(0.2, 1, 0.3))
@@ -212,31 +244,18 @@ func update_order_status(order: Dictionary, status: String) -> void:
 			status_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
 
 func _toggle_orders_panel() -> void:
-	"""Toggle the orders panel visibility."""
+	"""Toggle the orders panel visibility (Tab key)."""
 	_set_orders_visibility(not orders_visible)
 
-func _on_toggle_button_pressed() -> void:
-	"""Called when toggle button is pressed."""
-	_toggle_orders_panel()
+# Toggle button function removed - use Tab key instead
+# func _on_toggle_button_pressed() -> void:
+# 	"""Called when toggle button is pressed."""
+# 	_toggle_orders_panel()
 
 func _set_orders_visibility(show_orders: bool) -> void:
 	"""Set the orders panel visibility."""
 	orders_visible = show_orders
 
-	# Hide/show the orders list container
-	if orders_container:
-		orders_container.visible = show_orders
-
-	# Hide/show the "Active Orders:" label
-	if orders_label:
-		orders_label.visible = show_orders
-
-	# Adjust panel size flags to collapse when hidden
+	# Hide/show the entire orders panel (this hides the dark background too)
 	if orders_panel:
-		if show_orders:
-			orders_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		else:
-			orders_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-
-	if toggle_button:
-		toggle_button.text = "Hide" if show_orders else "Show"
+		orders_panel.visible = show_orders

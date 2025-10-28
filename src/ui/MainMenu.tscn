@@ -1,68 +1,270 @@
-[gd_scene load_steps=2 format=3 uid="uid://c4xqam7n2q8k5"]
+[gd_scene load_steps=5 format=3 uid="uid://c4xp9m7n2q8k5"]
 
 [ext_resource type="Script" path="res://src/ui/MainMenu.gd" id="1_mainmenu"]
+[ext_resource type="Script" path="res://src/ui/FallingFoodManager.gd" id="2_foodmanager"]
+[ext_resource type="Script" path="res://src/ui/FloatingSparkles.gd" id="3_sparkles"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_background"]
+bg_color = Color(0.05, 0.05, 0.08, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.8, 0.6, 0.3, 0.5)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+shadow_color = Color(0, 0, 0, 0.6)
+shadow_size = 10
 
 [node name="MainMenu" type="CanvasLayer" groups=["main_menu"]]
 process_mode = 3
 layer = 99
 script = ExtResource("1_mainmenu")
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="BackgroundGradient" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.15, 0.12, 0.1, 1)
+
+[node name="BackgroundPattern" type="ColorRect" parent="."]
+modulate = Color(1, 1, 1, 0.05)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.8, 0.6, 0.3, 1)
+
+[node name="AnimatedOverlay" type="ColorRect" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.3)
+
+[node name="FallingFoodLayer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="FallingFoodManager" type="Node" parent="FallingFoodLayer"]
+script = ExtResource("2_foodmanager")
+food_count = 6
+fall_speed_min = 60.0
+fall_speed_max = 120.0
+food_alpha = 0.15
+
+[node name="FloatingParticlesLayer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="FloatingSparkles" type="Node" parent="FloatingParticlesLayer"]
+script = ExtResource("3_sparkles")
+sparkle_count = 15
+rise_speed_min = 20.0
+rise_speed_max = 40.0
+sparkle_alpha = 0.4
+
+[node name="Panel" type="Control" parent="."]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+[node name="CenterContainer" type="CenterContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MenuContainer" type="VBoxContainer" parent="Panel/CenterContainer"]
 layout_mode = 2
+theme_override_constants/separation = 30
 alignment = 1
 
-[node name="Title" type="Label" parent="Panel/VBoxContainer"]
+[node name="TitleSection" type="VBoxContainer" parent="Panel/CenterContainer/MenuContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 72
-text = "RESTAURANT FLOWS"
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Panel/CenterContainer/MenuContainer/TitleSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.85, 1)
+theme_override_colors/font_shadow_color = Color(0.8, 0.5, 0.2, 0.8)
+theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 1)
+theme_override_constants/shadow_offset_x = 4
+theme_override_constants/shadow_offset_y = 4
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 96
+text = "🍽️ RESTAURANT FLOWS"
 horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="Panel/VBoxContainer"]
+[node name="Subtitle" type="Label" parent="Panel/CenterContainer/MenuContainer/TitleSection"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Manage your restaurant, serve customers, and grow your business"
+theme_override_colors/font_color = Color(0.9, 0.85, 0.75, 0.9)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 28
+text = "Cook • Serve • Succeed"
 horizontal_alignment = 1
 
-[node name="Spacer" type="Control" parent="Panel/VBoxContainer"]
-custom_minimum_size = Vector2(0, 50)
+[node name="Tagline" type="Label" parent="Panel/CenterContainer/MenuContainer/TitleSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.65, 0.55, 0.7)
+theme_override_font_sizes/font_size = 20
+text = "Master the art of restaurant management"
+horizontal_alignment = 1
+
+[node name="Spacer1" type="Control" parent="Panel/CenterContainer/MenuContainer"]
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
-[node name="Buttons" type="VBoxContainer" parent="Panel/VBoxContainer"]
+[node name="ButtonsPanel" type="PanelContainer" parent="Panel/CenterContainer/MenuContainer"]
+self_modulate = Color(1, 1, 1, 0.95)
+custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
-theme_override_constants/separation = 15
-alignment = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_background")
 
-[node name="StartButton" type="Button" parent="Panel/VBoxContainer/Buttons"]
-custom_minimum_size = Vector2(400, 70)
+[node name="Buttons" type="VBoxContainer" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="ButtonSpacer1" type="Control" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel/Buttons"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="ContinueButton" type="Button" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel/Buttons"]
+custom_minimum_size = Vector2(460, 80)
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 32
-text = "Start Game"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.95, 0.8, 1)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.85, 1)
+theme_override_font_sizes/font_size = 36
+text = "▶ CONTINUE"
+flat = true
 
-[node name="SettingsButton" type="Button" parent="Panel/VBoxContainer/Buttons"]
-custom_minimum_size = Vector2(400, 60)
+[node name="NewGameButton" type="Button" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel/Buttons"]
+custom_minimum_size = Vector2(460, 70)
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 24
-text = "Settings"
+theme_override_colors/font_color = Color(0.95, 0.9, 0.8, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.95, 0.8, 1)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.85, 1)
+theme_override_font_sizes/font_size = 28
+text = "🆕 START NEW GAME"
+flat = true
 
-[node name="CreditsButton" type="Button" parent="Panel/VBoxContainer/Buttons"]
-custom_minimum_size = Vector2(400, 60)
+[node name="LoadGameButton" type="Button" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel/Buttons"]
+custom_minimum_size = Vector2(460, 70)
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 24
-text = "Credits"
+theme_override_colors/font_color = Color(0.9, 0.85, 0.75, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.95, 0.8, 1)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.85, 1)
+theme_override_font_sizes/font_size = 28
+text = "💾 LOAD GAME"
+flat = true
 
-[node name="QuitButton" type="Button" parent="Panel/VBoxContainer/Buttons"]
-custom_minimum_size = Vector2(400, 60)
+[node name="SettingsButton" type="Button" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel/Buttons"]
+custom_minimum_size = Vector2(460, 65)
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 24
-text = "Quit"
+theme_override_colors/font_color = Color(0.9, 0.85, 0.75, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.95, 0.8, 1)
+theme_override_colors/font_hover_color = Color(1, 0.9, 0.8, 1)
+theme_override_font_sizes/font_size = 28
+text = "⚙ Settings"
+flat = true
+
+[node name="CreditsButton" type="Button" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel/Buttons"]
+custom_minimum_size = Vector2(460, 65)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.9, 0.85, 0.75, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.95, 0.8, 1)
+theme_override_colors/font_hover_color = Color(1, 0.9, 0.8, 1)
+theme_override_font_sizes/font_size = 28
+text = "ℹ Credits"
+flat = true
+
+[node name="QuitButton" type="Button" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel/Buttons"]
+custom_minimum_size = Vector2(460, 65)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.8, 0.6, 0.5, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.7, 0.6, 1)
+theme_override_colors/font_hover_color = Color(0.95, 0.7, 0.6, 1)
+theme_override_font_sizes/font_size = 28
+text = "✕ Quit"
+flat = true
+
+[node name="ButtonSpacer2" type="Control" parent="Panel/CenterContainer/MenuContainer/ButtonsPanel/Buttons"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="Spacer2" type="Control" parent="Panel/CenterContainer/MenuContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="VersionLabel" type="Label" parent="Panel"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -200.0
+offset_top = -40.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.5, 0.45, 0.4, 0.6)
+theme_override_font_sizes/font_size = 16
+text = "v1.0.0 - Godot 4.5"
+horizontal_alignment = 2
+vertical_alignment = 2
+
+[node name="TipLabel" type="Label" parent="Panel"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -60.0
+offset_right = 300.0
+offset_bottom = -30.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.8, 0.7, 0.5, 0.7)
+theme_override_font_sizes/font_size = 18
+text = "💡 Press H in-game to view controls"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="AnimationTimer" type="Timer" parent="."]
+wait_time = 0.016
+autostart = true

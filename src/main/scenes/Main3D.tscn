@@ -1,4 +1,4 @@
-[gd_scene load_steps=42 format=3 uid="uid://c3qw7n5hy8r2m"]
+[gd_scene load_steps=50 format=3 uid="uid://c3qw7n5hy8r2m"]
 
 [ext_resource type="PackedScene" uid="uid://dxy4qr7bvn2yw" path="res://src/characters/scenes/Player.tscn" id="1_player"]
 [ext_resource type="PackedScene" uid="uid://bsxw6h2nq3r8f" path="res://src/ui/GameHUD.tscn" id="2_hud"]
@@ -12,14 +12,18 @@
 [ext_resource type="PackedScene" uid="uid://cpadl046r15r8" path="res://src/ui/OrderBoard.tscn" id="13_orderboard"]
 [ext_resource type="PackedScene" uid="uid://5wo00kdmfe6j" path="res://src/environment/scenes/Door.tscn" id="14_door"]
 [ext_resource type="Script" uid="uid://326w0tx0pu00" path="res://src/environment/scripts/ServingCounter.gd" id="15_serving_counter"]
-[ext_resource type="PackedScene" uid="uid://ca8k3vb2qwc7h" path="res://src/ui/ShopUI.tscn" id="16_shop_ui"]
+[ext_resource type="PackedScene" uid="uid://b2qx8kw5fn3na" path="res://src/ui/FPSDisplay.tscn" id="16_fps_display"]
+[ext_resource type="PackedScene" uid="uid://c4xqam7n2q8k5" path="res://src/ui/MainMenu.tscn" id="16_main_menu"]
 [ext_resource type="PackedScene" uid="uid://dpw8x3kv2n5m4" path="res://src/ui/PauseMenu.tscn" id="16_pause_menu"]
 [ext_resource type="PackedScene" uid="uid://b5mn8qr3xw4k7" path="res://src/ui/SettingsMenu.tscn" id="16_settings_menu"]
-[ext_resource type="PackedScene" uid="uid://c4xp9m7n2q8k5" path="res://src/ui/MainMenu.tscn" id="16_main_menu"]
-[ext_resource type="PackedScene" uid="uid://b2qx8kw5fn3m9" path="res://src/ui/FPSDisplay.tscn" id="16_fps_display"]
+[ext_resource type="PackedScene" uid="uid://ca8k3vb2qwc7h" path="res://src/ui/ShopUI.tscn" id="16_shop_ui"]
 [ext_resource type="Script" uid="uid://ce5yut81yf4" path="res://src/systems/scripts/WaiterSpawner.gd" id="17_waiter_spawner"]
 [ext_resource type="Script" uid="uid://7pg8hw4c7ox4" path="res://src/systems/scripts/ChefSpawner.gd" id="18_chef_spawner"]
 [ext_resource type="PackedScene" uid="uid://c5k7j8nan6p2q" path="res://src/characters/scenes/Chef.tscn" id="19_chef"]
+[ext_resource type="Script" uid="uid://0ws0rwpu0b8a" path="res://src/systems/scripts/BuildModeManager.gd" id="20_buildmode"]
+[ext_resource type="PackedScene" uid="uid://cu7jm8vx2n5rp" path="res://src/ui/scenes/BuildModeShopUI.tscn" id="21_buildshop"]
+[ext_resource type="PackedScene" uid="uid://c7y8rar0s1t2u" path="res://src/ui/scenes/BuildModeUpgradesUI.tscn" id="22_buildupgrades"]
+[ext_resource type="PackedScene" uid="uid://cmr8vw5fn3k4a" path="res://src/ui/scenes/ZoneSelectorUI.tscn" id="23_zoneselector"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -103,7 +107,7 @@ material = SubResource("StandardMaterial3D_wall")
 size = Vector3(5.1, 1.5, 0.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_filler_top"]
-size = Vector3(3.5580812, 1.5, 0.3)
+size = Vector3(5.1598997, 1.5, 0.3)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall_filler_bottom"]
 material = SubResource("StandardMaterial3D_wall")
@@ -132,7 +136,7 @@ transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75
 light_energy = 1.5
 shadow_enabled = true
 
-[node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="." groups=["navigation_region"]]
 navigation_mesh = SubResource("NavigationMesh_nav")
 
 [node name="Floor" type="StaticBody3D" parent="NavigationRegion3D"]
@@ -207,6 +211,15 @@ mesh = SubResource("BoxMesh_wall")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="NavigationRegion3D/Walls/WallWest"]
 shape = SubResource("BoxShape3D_wall")
 
+[node name="KitchenZoneCenter" type="Marker3D" parent="NavigationRegion3D" groups=["kitchen_zone"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, -5)
+
+[node name="DiningZoneCenter" type="Marker3D" parent="NavigationRegion3D" groups=["dining_zone"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 2)
+
+[node name="StorageZoneCenter" type="Marker3D" parent="NavigationRegion3D" groups=["storage_zone"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8)
+
 [node name="StaffArea" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 0)
 
@@ -229,14 +242,14 @@ transform = Transform3D(-4.369442e-08, -0.027869299, 0.99961156, -1.2182061e-09,
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 0)
 
 [node name="Table1" parent="DiningArea" instance=ExtResource("6_table")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, -3)
 
 [node name="Table2" parent="DiningArea" instance=ExtResource("6_table")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2535725, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, -3)
 table_number = 2
 
 [node name="Table3" parent="DiningArea" instance=ExtResource("6_table")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -3)
 table_number = 3
 
 [node name="KitchenDividingWall" type="Node3D" parent="."]
@@ -298,7 +311,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.77037466, -0.24812889, 0)
 mesh = SubResource("BoxMesh_wall_filler_top")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="KitchenDividingWall/WallFillerTop"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.05332136, -0.25496674, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7475879, -0.25496674, 0)
 shape = SubResource("BoxShape3D_wall_filler_top")
 
 [node name="WallFillerBottom" type="StaticBody3D" parent="KitchenDividingWall"]
@@ -377,3 +390,21 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 5)
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.05563897, 3.235274, 9.994219)
 mesh = SubResource("BoxMesh_wall_filler_top")
+
+[node name="BuildModeManager" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("20_buildmode")
+
+[node name="DiningBuildCamera" type="Camera3D" parent="." groups=["dining_build_camera"]]
+transform = Transform3D(0.8660253, -0.35355332, 0.35355377, 0, 0.7071072, 0.7071064, -0.50000024, -0.612372, 0.61237276, 9.771093, 11.593706, 10.215816)
+fov = 45.0
+
+[node name="KitchenBuildCamera" type="Camera3D" parent="." groups=["kitchen_build_camera"]]
+transform = Transform3D(0.8660253, -0.35355332, 0.35355377, 0, 0.7071072, 0.7071064, -0.50000024, -0.612372, 0.61237276, -1.0023108, 10.788079, 9.126355)
+fov = 45.0
+
+[node name="BuildModeShopUI" parent="." instance=ExtResource("21_buildshop")]
+
+[node name="BuildModeUpgradesUI" parent="." instance=ExtResource("22_buildupgrades")]
+
+[node name="ZoneSelectorUI" parent="." instance=ExtResource("23_zoneselector")]
